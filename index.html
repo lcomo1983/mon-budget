@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon Budget</title>
+<style>
+  :root{
+    --bg:#0f1419; --surface:#1a2230; --surface-2:#232d3f; --border:#2c3850;
+    --text:#e6edf3; --muted:#8b98a9; --accent:#4f8cff; --accent-2:#3a6fd8;
+    --green:#2ecc71; --red:#ff5c6c; --amber:#f5b945; --radius:14px;
+    --shadow:0 8px 24px rgba(0,0,0,.35);
+    --page-bg:linear-gradient(160deg,#0b0f16,#0f1419 40%,#121a26);
+  }
+  html[data-theme="light"]{
+    --bg:#f4f6fb; --surface:#ffffff; --surface-2:#eef1f7; --border:#dde3ee;
+    --text:#1c2433; --muted:#6b7689; --accent:#3a6fd8; --accent-2:#2f5cc0;
+    --green:#1ca85a; --red:#e23b4e; --amber:#d99a16;
+    --shadow:0 6px 18px rgba(60,80,120,.12);
+    --page-bg:linear-gradient(160deg,#eef2fa,#f4f6fb 40%,#e9eef9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--page-bg);
+    color:var(--text);min-height:100vh;padding:24px;line-height:1.45;
+    transition:background .3s,color .3s;
+  }
+  .wrap{max-width:1100px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#7b5cff);
+    display:grid;place-items:center;font-size:22px;box-shadow:var(--shadow)}
+  h1{font-size:22px;font-weight:700;letter-spacing:-.4px}
+  .sub{color:var(--muted);font-size:13px}
+  .month-nav{display:flex;align-items:center;gap:8px;background:var(--surface);padding:6px;border-radius:12px;border:1px solid var(--border)}
+  .month-nav button{background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:16px;transition:.15s}
+  .month-nav button:hover{background:var(--accent);border-color:var(--accent)}
+  .month-label{min-width:140px;text-align:center;font-weight:600;text-transform:capitalize}
+  .hdr-right{display:flex;align-items:center;gap:10px}
+  .theme-btn{width:46px;height:46px;border-radius:12px;background:var(--surface);border:1px solid var(--border);
+    color:var(--text);cursor:pointer;font-size:20px;box-shadow:var(--shadow);transition:.15s}
+  .theme-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .import-btn{height:46px;padding:0 16px;border-radius:12px;background:var(--surface);border:1px solid var(--border);
+    color:var(--text);cursor:pointer;font-size:14px;font-weight:600;box-shadow:var(--shadow);transition:.15s;
+    display:flex;align-items:center;gap:8px;white-space:nowrap}
+  .import-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+  @media(max-width:560px){.import-btn span{display:none}.import-btn{padding:0 14px}}
+
+  .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:6px;margin-bottom:20px;box-shadow:var(--shadow)}
+  .tab{flex:1;background:transparent;border:none;color:var(--muted);padding:12px;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;transition:.15s;display:flex;align-items:center;justify-content:center;gap:7px}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(79,140,255,.3)}
+  .tabpane{animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+  .card .lbl{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .card .val{font-size:28px;font-weight:700;letter-spacing:-.5px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+
+  .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:20px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+  .panel.editing{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,140,255,.15)}
+  .panel h2{font-size:15px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .panel h2 .hint{color:var(--muted);font-weight:400;font-size:12px}
+  .edit-badge{background:rgba(79,140,255,.15);color:var(--accent);font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
+
+  form .row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
+  .field{flex:1;min-width:120px}
+  input,select{width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    padding:10px 12px;border-radius:10px;font-size:14px;outline:none;transition:.15s}
+  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,140,255,.15)}
+  .seg{display:flex;background:var(--surface-2);border-radius:10px;padding:4px;border:1px solid var(--border)}
+  .seg button{flex:1;background:transparent;border:none;color:var(--muted);padding:8px;border-radius:7px;cursor:pointer;font-weight:600;font-size:13px;transition:.15s}
+  .seg button.active.dep{background:var(--red);color:#fff}
+  .seg button.active.rev{background:var(--green);color:#fff}
+  .btn{background:var(--accent);color:#fff;border:none;padding:11px 18px;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;transition:.15s;flex:1}
+  .btn:hover{background:var(--accent-2)}
+  .btn.ghost{background:var(--surface-2);border:1px solid var(--border);color:var(--muted);flex:0 0 auto;padding:11px 16px}
+  .btn.ghost:hover{color:var(--text);border-color:var(--accent)}
+
+  /* récurrence */
+  .recur{background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:12px}
+  .check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;margin:0}
+  .check input{width:auto;cursor:pointer;accent-color:var(--accent);transform:scale(1.15)}
+  #recurOpts{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)}
+  .radios{display:flex;gap:8px;margin-bottom:10px}
+  .radio-pill{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--surface);border:1px solid var(--border);
+    border-radius:9px;padding:9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);transition:.15s}
+  .radio-pill input{width:auto;accent-color:var(--accent)}
+  .radio-pill.sel{border-color:var(--accent);color:var(--text);background:rgba(79,140,255,.1)}
+
+  .tx-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto;padding-right:4px}
+  .tx{display:flex;align-items:center;gap:12px;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:11px;padding:11px 14px;transition:.15s}
+  .tx:hover{border-color:var(--accent)}
+  .tx.is-editing{border-color:var(--accent);background:rgba(79,140,255,.08)}
+  .tx .ic{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;font-size:18px;flex-shrink:0;position:relative}
+  .tx .ic .rec{position:absolute;bottom:-3px;right:-3px;background:var(--surface);border-radius:50%;font-size:10px;width:16px;height:16px;display:grid;place-items:center}
+  .tx .meta{flex:1;min-width:0}
+  .tx .meta .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tx .meta .d{color:var(--muted);font-size:12px}
+  .tx .amt{font-weight:700;font-size:15px;white-space:nowrap}
+  .tx .acts{display:flex;gap:2px}
+  .tx .acts button{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px 7px;border-radius:6px;transition:.15s}
+  .tx .acts .edit:hover{color:var(--accent);background:rgba(79,140,255,.12)}
+  .tx .acts .del:hover{color:var(--red);background:rgba(255,92,108,.1)}
+  .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px}
+
+  .donut-wrap{display:flex;align-items:center;justify-content:center;gap:22px;margin-bottom:20px;flex-wrap:wrap}
+  .donut{position:relative;width:172px;height:172px;flex-shrink:0}
+  .donut svg circle{transition:stroke-dasharray .5s ease,stroke-dashoffset .5s ease}
+  .donut .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .donut .center .c-val{font-size:19px;font-weight:700;letter-spacing:-.3px}
+  .donut .center .c-lbl{font-size:11px;color:var(--muted)}
+  .legend{display:flex;flex-direction:column;gap:7px;font-size:12.5px;min-width:0}
+  .legend .li{display:flex;align-items:center;gap:8px;white-space:nowrap}
+  .legend .sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+  .legend .li .ln{overflow:hidden;text-overflow:ellipsis}
+  .legend .li .lp{color:var(--muted);margin-left:auto;padding-left:8px}
+  .bars{display:flex;flex-direction:column;gap:12px}
+  .bar-row .bar-head{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .bar-row .bar-head .cat{display:flex;align-items:center;gap:7px;font-weight:600}
+  .bar-track{height:9px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:6px;transition:width .5s ease}
+
+  .chart{width:100%;overflow:hidden}
+  .chart svg{width:100%;height:auto;display:block}
+  .chart .axis{fill:var(--muted);font-size:10px}
+  .chart .gridline{stroke:var(--border);stroke-width:1;opacity:.6}
+  .chart-legend{display:flex;gap:20px;justify-content:center;margin-top:12px;font-size:12.5px;flex-wrap:wrap;color:var(--muted)}
+  .chart-legend .li{display:flex;align-items:center;gap:7px}
+  .chart-legend .sw{width:12px;height:12px;border-radius:3px}
+  .chart-legend .sw.line{width:18px;height:3px;border-radius:2px}
+  .range-sel{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:4px;font-weight:400}
+  .range-sel button{background:transparent;border:none;color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;transition:.15s}
+  .range-sel button:hover{color:var(--text)}
+  .range-sel button.active{background:var(--accent);color:#fff}
+  .toolbar{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .toolbar button{flex:1;min-width:120px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    padding:10px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s}
+  .toolbar button:hover{border-color:var(--accent);color:var(--accent)}
+  .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:28px}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+  /* import relevé PDF */
+  .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:1040px;max-height:92vh;display:flex;flex-direction:column}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+  .modal-head h2{font-size:16px}
+  .modal-head .theme-btn{width:38px;height:38px;font-size:18px;box-shadow:none}
+  .modal-sub{padding:12px 20px 0;color:var(--muted);font-size:13px}
+  .imp-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 20px}
+  .imp-tools .btn{flex:0 0 auto}
+  .imp-table-wrap{overflow:auto;padding:0 20px;flex:1;min-height:120px}
+  .imp-table{width:100%;border-collapse:collapse;font-size:13px}
+  .imp-table th{position:sticky;top:0;background:var(--surface);text-align:left;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--border);font-size:12px;z-index:1}
+  .imp-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .imp-table tr.off td{opacity:.4}
+  .imp-table input,.imp-table select{padding:7px 9px;font-size:13px}
+  .imp-table input[type=text]{min-width:150px}
+  .imp-table input.imp-sub{min-width:130px}
+  .imp-table input[type=number]{width:104px}
+  .imp-table input[type=date]{width:148px}
+  .imp-table input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.2)}
+  .type-pill{border:none;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer;font-size:12px;color:#fff;white-space:nowrap}
+  .type-pill.rev{background:var(--green)} .type-pill.dep{background:var(--red)}
+  .imp-loading{padding:48px 20px;text-align:center;color:var(--muted);font-size:14px}
+  .modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;border-top:1px solid var(--border)}
+  .modal-foot .btn{flex:0 0 auto}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">💰</div>
+      <div>
+        <h1>Mon Budget</h1>
+        <div class="sub">Suivi des revenus et dépenses</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="month-nav">
+        <button id="prevM" title="Mois précédent">‹</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button id="nextM" title="Mois suivant">›</button>
+      </div>
+      <button id="pdfBtn" class="import-btn" title="Importer un relevé bancaire (PDF)">📄 <span>Importer un relevé</span></button>
+      <button id="themeBtn" class="theme-btn" title="Changer de thème">🌙</button>
+    </div>
+  </header>
+
+  <section class="cards">
+    <div class="card">
+      <div class="lbl"><span class="dot" style="background:var(--green)"></span>Revenus</div>
+      <div class="val pos" id="totalRev">0 €</div>
+    </div>
+    <div class="card">
+      <div class="lbl"><span class="dot" style="background:var(--red)"></span>Dépenses</div>
+      <div class="val neg" id="totalDep">0 €</div>
+    </div>
+    <div class="card">
+      <div class="lbl"><span class="dot" style="background:var(--accent)"></span>Solde du mois</div>
+      <div class="val" id="solde">0 €</div>
+    </div>
+  </section>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="dep">💸 Dépenses</button>
+    <button class="tab" data-tab="rev">💰 Revenus</button>
+    <button class="tab" data-tab="charts">📊 Graphiques</button>
+  </div>
+
+  <!-- ===== ONGLET DÉPENSES ===== -->
+  <div class="tabpane" id="pane-dep">
+  <div class="grid">
+    <div>
+      <div id="slot-dep">
+      <div class="panel" id="formPanel" style="margin-bottom:20px">
+        <h2><span id="formTitle">Ajouter une opération</span><span class="edit-badge" id="editBadge" style="display:none">Modification</span></h2>
+        <form id="txForm">
+          <div class="recur" id="editScope" style="display:none">
+            <label style="margin-bottom:8px">Modifier</label>
+            <div class="radios">
+              <label class="radio-pill sel" id="scopeMonth"><input type="radio" name="scope" value="month" checked> 📌 <span id="scopeMonthLbl">Ce mois</span> uniquement</label>
+              <label class="radio-pill" id="scopeSeries"><input type="radio" name="scope" value="series"> 🔁 Toute la série</label>
+            </div>
+            <div class="sub" id="scopeHint" style="font-size:12.5px;margin-top:2px"></div>
+            <button type="button" class="btn ghost" id="resetOvBtn" style="display:none;margin-top:10px;width:100%">↺ Rétablir le montant de la série pour ce mois</button>
+          </div>
+          <div class="row">
+            <div class="field" style="flex:2">
+              <label>Libellé</label>
+              <input type="text" id="label" placeholder="Ex : Courses, Salaire…" required>
+            </div>
+            <div class="field">
+              <label>Montant (€)</label>
+              <input type="number" id="amount" step="0.01" min="0" placeholder="0,00" required>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Catégorie</label>
+              <select id="category"></select>
+            </div>
+            <div class="field" id="dateField">
+              <label id="dateLabel">Date</label>
+              <input type="date" id="date">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field" style="flex:1">
+              <label>Sous-catégorie <span style="color:var(--muted)">(facultatif)</span></label>
+              <input type="text" id="subcategory" list="subcatList" placeholder="Ex : Prêt immo, Travaux…" autocomplete="off">
+              <datalist id="subcatList"></datalist>
+            </div>
+          </div>
+
+          <div class="recur">
+            <label style="margin-bottom:8px">Fréquence</label>
+            <div class="radios">
+              <label class="radio-pill sel" id="pillOnce"><input type="radio" name="freq" value="once" checked> Ponctuelle</label>
+              <label class="radio-pill" id="pillMonthly"><input type="radio" name="freq" value="monthly"> 🔁 Tous les mois</label>
+              <label class="radio-pill" id="pillPeriod"><input type="radio" name="freq" value="period"> 📅 Sur une période</label>
+            </div>
+            <div id="periodOpts" style="display:none">
+              <div class="row" style="margin-bottom:10px">
+                <div class="field">
+                  <label id="startLbl">Mois de début</label>
+                  <select id="startMonth"></select>
+                </div>
+                <div class="field">
+                  <label>Année</label>
+                  <input type="number" id="startYear" min="2000" max="2100" step="1">
+                </div>
+              </div>
+              <div class="row" id="endRow" style="display:none;margin-bottom:0">
+                <div class="field">
+                  <label>Mois de fin</label>
+                  <select id="endMonth"></select>
+                </div>
+                <div class="field">
+                  <label>Année de fin</label>
+                  <input type="number" id="endYear" min="2000" max="2100" step="1">
+                </div>
+              </div>
+              <label class="check" id="annualWrap" style="margin-top:12px;display:none"><input type="checkbox" id="annual"> 🔁 Répéter cette période chaque année</label>
+            </div>
+          </div>
+
+          <div class="row" style="margin-bottom:0">
+            <button type="submit" class="btn" id="submitBtn">+ Ajouter</button>
+            <button type="button" class="btn ghost" id="cancelBtn" style="display:none">Annuler</button>
+          </div>
+        </form>
+      </div>
+      </div><!-- /slot-dep -->
+
+      <div class="panel">
+        <h2>Dépenses du mois <span class="hint" id="txCountDep"></span></h2>
+        <div class="tx-list" id="txListDep"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Dépenses par catégorie <span class="hint" id="depHint"></span></h2>
+        <div class="donut-wrap" id="donutWrap"></div>
+        <div class="bars" id="catBars"></div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /pane-dep -->
+
+  <!-- ===== ONGLET REVENUS ===== -->
+  <div class="tabpane" id="pane-rev" style="display:none">
+  <div class="grid">
+    <div>
+      <div id="slot-rev"></div>
+      <div class="panel">
+        <h2>Revenus du mois <span class="hint" id="txCountRev"></span></h2>
+        <div class="tx-list" id="txListRev"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>Revenus par catégorie <span class="hint" id="revHint"></span></h2>
+        <div class="donut-wrap" id="donutWrapRev"></div>
+        <div class="bars" id="catBarsRev"></div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /pane-rev -->
+
+  <!-- ===== ONGLET GRAPHIQUES ===== -->
+  <div class="tabpane" id="pane-charts" style="display:none">
+  <div class="panel">
+    <h2>
+      <span>Évolution sur <span id="rangeMonths">12</span> mois <span class="hint">jusqu'à <span id="rangeHint"></span></span></span>
+      <span class="range-sel" id="rangeSel">
+        <button data-range="12" class="active">12</button>
+        <button data-range="24">24</button>
+        <button data-range="36">36</button>
+      </span>
+    </h2>
+    <div class="chart" id="chartMonthly"></div>
+    <div class="chart-legend">
+      <div class="li"><span class="sw" style="background:var(--green)"></span>Revenus</div>
+      <div class="li"><span class="sw" style="background:var(--red)"></span>Dépenses</div>
+      <div class="li"><span class="sw line" style="background:var(--accent)"></span>Solde du mois</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:20px">
+    <h2>Solde cumulé <span class="hint" id="cumHint"></span></h2>
+    <div class="chart" id="chartCumul"></div>
+  </div>
+
+  <div class="panel" style="margin-top:20px">
+    <h2>Données</h2>
+    <div class="sub" style="color:var(--muted);font-size:13px">Tout est sauvegardé localement dans ce navigateur.</div>
+    <div class="toolbar">
+      <button id="exportBtn">⬇ Exporter (JSON)</button>
+      <button id="importBtn">⬆ Importer (JSON)</button>
+      <button id="csvBtn">📊 Export CSV</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <input type="file" id="pdfFile" accept="application/pdf" style="display:none">
+    </div>
+  </div>
+  </div><!-- /pane-charts -->
+
+  <div class="footer">Mon Budget — données privées stockées sur cet appareil uniquement.</div>
+</div>
+
+<!-- ===== MODAL IMPORT RELEVÉ ===== -->
+<div class="modal-ov" id="importModal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>📄 Importer un relevé — relecture</h2>
+      <button class="theme-btn" id="impClose" title="Fermer">×</button>
+    </div>
+    <div class="modal-sub" id="impSummary">Lecture en cours…</div>
+    <div class="imp-tools" id="impTools" style="display:none">
+      <label class="check"><input type="checkbox" id="impAll" checked> Tout sélectionner</label>
+      <button class="btn ghost" id="impInvert">↔ Inverser revenu / dépense</button>
+      <span class="sub" style="margin-left:auto;text-align:right">Vérifiez type, catégorie et montant<br>avant de valider.</span>
+    </div>
+    <div class="imp-table-wrap" id="impTableWrap">
+      <div class="imp-loading">Lecture du PDF…</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="impCancel">Annuler</button>
+      <button class="btn" id="impConfirm" disabled>Ajouter les opérations</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATS = {
+  depense:[
+    {name:"Alimentation",ic:"🛒",color:"#f5b945"},
+    {name:"Logement",ic:"🏠",color:"#4f8cff"},
+    {name:"Transport",ic:"🚗",color:"#2ecc71"},
+    {name:"Loisirs",ic:"🎉",color:"#b06cff"},
+    {name:"Santé",ic:"⚕️",color:"#ff7eb3"},
+    {name:"Factures",ic:"📄",color:"#ff5c6c"},
+    {name:"Impôts",ic:"🏛️",color:"#e06c9a"},
+    {name:"Shopping",ic:"🛍️",color:"#39d0d8"},
+    {name:"Restaurant",ic:"🍽️",color:"#ff9f43"},
+    {name:"Éducation",ic:"📚",color:"#5c7cff"},
+    {name:"Épargne",ic:"🏦",color:"#16c79a"},
+    {name:"Autre",ic:"📦",color:"#8b98a9"}
+  ],
+  revenu:[
+    {name:"Salaire",ic:"💼",color:"#2ecc71"},
+    {name:"Prime",ic:"🎁",color:"#39d0d8"},
+    {name:"Freelance",ic:"💻",color:"#4f8cff"},
+    {name:"Investissement",ic:"📈",color:"#b06cff"},
+    {name:"Dividendes",ic:"🪙",color:"#ffd24a"},
+    {name:"Remboursement",ic:"↩️",color:"#f5b945"},
+    {name:"Autre",ic:"💵",color:"#8b98a9"}
+  ]
+};
+const SUBCATS = {
+  "Alimentation":["Courses","Supermarché","Marché","Boulangerie","Boissons"],
+  "Logement":["Prêt immo","Loyer","Travaux","Entretien","Meuble","Électroménager","Décoration","Assurance habitation","Charges / Copropriété"],
+  "Transport":["Carburant","Transports en commun","Entretien / Réparation","Assurance auto","Péage / Parking","Taxi / VTC"],
+  "Loisirs":["Sorties","Sport","Vacances","Cinéma / Concert","Jeux","Abonnements (Netflix…)"],
+  "Santé":["Médecin","Pharmacie","Mutuelle","Dentiste","Opticien","Analyses"],
+  "Factures":["Électricité","Gaz","Eau","Internet","Téléphone","Abonnements"],
+  "Impôts":["Impôt sur le revenu","Taxe foncière","Taxe d'habitation","Prélèvement à la source","Impôts locaux","CFE","Redevance TV","Autre impôt"],
+  "Shopping":["Vêtements","Chaussures","Électronique","Maison","Cadeaux","Beauté"],
+  "Restaurant":["Restaurant","Fast-food","Café","Livraison"],
+  "Éducation":["Frais de scolarité","Livres","Formations","Fournitures","Garde / Crèche"],
+  "Épargne":["Plan Epargne Logement (PEL)","Plan d'épargne en actions (PEA)","Compte Epargne Logement (CEL)","Livret de Développement Durable et Solidaire (LDDS)","Compte Epargne Logement","Livret A","Compte titre (CTO)","Autre"],
+  "Salaire":["Salaire net","Heures supplémentaires","13e mois","Acompte"],
+  "Prime":["Prime annuelle","Intéressement","Participation"],
+  "Freelance":["Mission","Consulting","Vente de service"],
+  "Investissement":["Dividendes","Intérêts","Plus-value","Loyers perçus"],
+  "Dividendes":["Actions","ETF","PEA","Compte-titres","SCPI","Crypto"],
+  "Remboursement":["Mutuelle","Sécurité sociale","Frais pro","Ami / Famille"]
+};
+const MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const KEY="monbudget_tx_v1";
+let state={ txs: load(), type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:12 };
+
+function load(){ try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]} }
+function save(){ localStorage.setItem(KEY,JSON.stringify(state.txs)) }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7) }
+function fmt(n){ return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n) }
+function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0') }
+function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0') }
+function catInfo(type,name){ return (CATS[type]||[]).find(c=>c.name===name)||{ic:"•",color:"#8b98a9"} }
+// Montant effectif d'une opération pour un mois donné (tient compte des exceptions ponctuelles)
+function effAmount(t,key){
+  if(t.overrides && t.overrides[key] && t.overrides[key].amount!=null) return t.overrides[key].amount;
+  return t.amount;
+}
+
+const $=id=>document.getElementById(id);
+const monthLabel=$("monthLabel"), catBars=$("catBars");
+
+// remplir les sélecteurs de mois (début / fin)
+(function(){ ["startMonth","endMonth"].forEach(id=>{ const s=$(id); MOIS.forEach((m,i)=>{ const o=document.createElement("option"); o.value=String(i+1).padStart(2,'0'); o.textContent=m; s.appendChild(o); }); }); })();
+
+// Tri alphabétique (français) en gardant « Autre » en fin de liste
+function alphaCat(a,b){
+  if(a.name==="Autre") return 1;
+  if(b.name==="Autre") return -1;
+  return a.name.localeCompare(b.name,'fr');
+}
+function fillCats(keep){
+  const sel=$("category"); const cur=keep||sel.value; sel.innerHTML="";
+  CATS[state.type].slice().sort(alphaCat).forEach(c=>{
+    const o=document.createElement("option"); o.value=c.name; o.textContent=c.ic+"  "+c.name; sel.appendChild(o);
+  });
+  if(cur) sel.value=cur;
+  fillSubcats();
+}
+function fillSubcats(){
+  const dl=$("subcatList"); dl.innerHTML="";
+  (SUBCATS[$("category").value]||[]).slice().sort((a,b)=>a.localeCompare(b,'fr')).forEach(s=>{
+    const o=document.createElement("option"); o.value=s; dl.appendChild(o);
+  });
+}
+$("category").onchange=()=>{ $("subcategory").value=""; fillSubcats(); };
+function setType(t){
+  state.type=t;
+  fillCats();
+}
+
+// Portée d'édition (toute la série vs ce mois uniquement)
+function applyScopeUI(t){
+  const scope=document.querySelector('input[name="scope"]:checked').value;
+  state.editScope=scope;
+  $("scopeMonth").classList.toggle("sel",scope==='month');
+  $("scopeSeries").classList.toggle("sel",scope==='series');
+  $("scopeMonthLbl").textContent=monthShort(state.editMonth);
+  const ov=t.overrides && t.overrides[state.editMonth];
+  if(scope==='month'){
+    $("amount").value = ov && ov.amount!=null ? ov.amount : t.amount;
+    $("scopeHint").textContent="Seul le montant de "+monthShort(state.editMonth)+" sera modifié. La récurrence reste inchangée.";
+    $("scopeHint").style.display="block";
+    $("resetOvBtn").style.display = ov ? "block" : "none";
+  }else{
+    $("amount").value=t.amount;
+    $("scopeHint").textContent="Toutes les occurrences de la série seront modifiées.";
+    $("scopeHint").style.display="block";
+    $("resetOvBtn").style.display="none";
+  }
+}
+document.querySelectorAll('input[name="scope"]').forEach(r=>r.onchange=()=>{
+  const t=state.txs.find(x=>x.id===state.editId); if(t) applyScopeUI(t);
+});
+$("resetOvBtn").onclick=()=>{
+  const t=state.txs.find(x=>x.id===state.editId); if(!t||!t.overrides) return;
+  delete t.overrides[state.editMonth];
+  if(!Object.keys(t.overrides).length) delete t.overrides;
+  save();
+  $("amount").value=t.amount;
+  $("resetOvBtn").style.display="none";
+  render();
+};
+
+// ---- Onglets ----
+function tabType(tab){ return tab==='rev'?'revenu':'depense'; }
+function updateFormTitle(){
+  if(state.editId) return;
+  const rev=state.type==='revenu';
+  $("formTitle").textContent = rev ? "Ajouter un revenu" : "Ajouter une dépense";
+  $("submitBtn").textContent = rev ? "+ Ajouter le revenu" : "+ Ajouter la dépense";
+}
+function switchTab(tab){
+  state.tab=tab;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.tabpane').forEach(p=>p.style.display='none');
+  $("pane-"+tab).style.display='block';
+  if(tab==='dep'||tab==='rev'){
+    $("slot-"+tab).appendChild($("formPanel"));
+    if(!state.editId){ setType(tabType(tab)); resetForm(); updateFormTitle(); }
+  }
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  if(state.editId){ exitEdit(); resetForm(); }
+  switchTab(b.dataset.tab);
+});
+
+// fréquence : ponctuelle / mensuelle / période
+function currentFreq(){ return document.querySelector('input[name="freq"]:checked').value; }
+function syncFreqUI(){
+  const f=currentFreq();
+  $("pillOnce").classList.toggle("sel",f==='once');
+  $("pillMonthly").classList.toggle("sel",f==='monthly');
+  $("pillPeriod").classList.toggle("sel",f==='period');
+  $("dateField").style.display = f==='once' ? 'block' : 'none';
+  $("periodOpts").style.display = f==='once' ? 'none' : 'block';
+  $("endRow").style.display = f==='period' ? 'flex' : 'none';
+  $("annualWrap").style.display = f==='period' ? 'flex' : 'none';
+  $("startLbl").textContent = f==='period' ? "Mois de début" : "À partir du mois";
+}
+document.querySelectorAll('input[name="freq"]').forEach(r=>r.onchange=syncFreqUI);
+
+$("prevM").onclick=()=>{ state.cursor.setMonth(state.cursor.getMonth()-1); render() };
+$("nextM").onclick=()=>{ state.cursor.setMonth(state.cursor.getMonth()+1); render() };
+
+// sélecteur de plage des graphiques (12 / 24 / 36 mois)
+$("rangeSel").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  state.chartRange=+b.dataset.range;
+  $("rangeSel").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+  renderCharts();
+});
+
+function readForm(){
+  const freq=currentFreq();
+  let date="", recurring=false, endMonth=null, annual=false;
+  if(freq==='once'){
+    date=$("date").value;
+  }else{
+    const sy=parseInt($("startYear").value), sm=$("startMonth").value;
+    date=(sy&&sm)?(sy+"-"+sm+"-01"):"";
+    recurring=true;
+    if(freq==='period'){
+      const ey=parseInt($("endYear").value), em=$("endMonth").value;
+      endMonth=(ey&&em)?(ey+"-"+em):null;
+      annual=$("annual").checked;
+    }
+  }
+  return {
+    type:state.type,
+    label:$("label").value.trim(),
+    amount:parseFloat($("amount").value),
+    category:$("category").value,
+    subcategory:$("subcategory").value.trim(),
+    date, recurring, endMonth, annual
+  };
+}
+
+$("txForm").onsubmit=e=>{
+  e.preventDefault();
+  const data=readForm();
+  if(!data.label||isNaN(data.amount)||data.amount<=0){ alert("Renseigne un libellé et un montant valides."); return; }
+  if(!data.date){ alert("Renseigne la date (ou le mois de début)."); return; }
+  if(currentFreq()==='period' && !data.endMonth){ alert("Indique le mois de fin de la période."); return; }
+  if(data.recurring && !data.annual && data.endMonth && data.endMonth < data.date.slice(0,7)){
+    alert("Le mois de fin est antérieur au mois de début."); return;
+  }
+  if(state.editId){
+    const t=state.txs.find(x=>x.id===state.editId);
+    if(t){
+      if(state.editScope==='month' && t.recurring){
+        t.overrides=t.overrides||{};
+        t.overrides[state.editMonth]={amount:data.amount};
+      }else{
+        Object.assign(t,data);
+      }
+    }
+    exitEdit();
+  }else{
+    state.txs.push({id:uid(),...data});
+  }
+  save();
+  resetForm();
+  render();
+};
+
+function resetForm(){
+  $("label").value=""; $("amount").value=""; $("subcategory").value="";
+  document.querySelector('input[name="freq"][value="once"]').checked=true;
+  const now=new Date(), mm=String(now.getMonth()+1).padStart(2,'0'), yy=now.getFullYear();
+  $("date").value=ymd(now);
+  $("startMonth").value=mm; $("startYear").value=yy;
+  $("endMonth").value=mm; $("endYear").value=yy;
+  $("annual").checked=false;
+  syncFreqUI();
+}
+
+function startEdit(id, monthK){
+  const t=state.txs.find(x=>x.id===id); if(!t) return;
+  switchTab(t.type==='revenu'?'rev':'dep');
+  state.editId=id;
+  state.editMonth=monthK||monthKey(state.cursor);
+  state.editScope='series';
+  setType(t.type);
+  fillCats(t.category);
+  $("label").value=t.label;
+  $("amount").value=t.amount;
+  $("category").value=t.category;
+  fillSubcats();
+  $("subcategory").value=t.subcategory||"";
+  let freq = t.recurring ? ((t.endMonth || t.annual) ? 'period' : 'monthly') : 'once';
+  document.querySelector('input[name="freq"][value="'+freq+'"]').checked=true;
+  $("annual").checked=!!t.annual;
+  if(freq==='once'){
+    $("date").value=t.date;
+  }else{
+    $("startMonth").value=t.date.slice(5,7);
+    $("startYear").value=t.date.slice(0,4);
+    if(freq==='period' && t.endMonth){
+      $("endMonth").value=t.endMonth.slice(5,7);
+      $("endYear").value=t.endMonth.slice(0,4);
+    }
+  }
+  syncFreqUI();
+  if(t.recurring){
+    $("editScope").style.display="block";
+    document.querySelector('input[name="scope"][value="month"]').checked=true;
+    applyScopeUI(t);
+  }else{
+    $("editScope").style.display="none";
+    state.editScope='series';
+  }
+  $("formTitle").textContent="Modifier l'opération";
+  $("editBadge").style.display="inline-block";
+  $("submitBtn").textContent="✓ Enregistrer";
+  $("cancelBtn").style.display="inline-block";
+  $("formPanel").classList.add("editing");
+  render();
+  $("formPanel").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function exitEdit(){
+  state.editId=null; state.editScope='series'; state.editMonth=null;
+  $("editScope").style.display="none";
+  $("editBadge").style.display="none";
+  $("cancelBtn").style.display="none";
+  $("formPanel").classList.remove("editing");
+  updateFormTitle();
+}
+$("cancelBtn").onclick=()=>{ exitEdit(); resetForm(); render(); };
+
+function delTx(id){
+  const t=state.txs.find(x=>x.id===id); if(!t) return;
+  const msg=t.recurring ? "Cette opération est récurrente. Supprimer toute la série ?" : "Supprimer cette opération ?";
+  if(!confirm(msg)) return;
+  state.txs=state.txs.filter(x=>x.id!==id);
+  if(state.editId===id) exitEdit();
+  save(); render();
+}
+
+function monthTxs(){
+  const k=monthKey(state.cursor);
+  const out=[];
+  state.txs.forEach(t=>{
+    if(!occursIn(t,k)) return;
+    if(t.recurring){
+      const day=parseInt(t.date.slice(8,10))||1;
+      const [yy,mm]=k.split('-').map(Number);
+      const last=new Date(yy,mm,0).getDate();
+      out.push({...t, amount:effAmount(t,k), overridden:!!(t.overrides&&t.overrides[k]), dateDisp:k+"-"+String(Math.min(day,last)).padStart(2,'0')});
+    }else{
+      out.push({...t, dateDisp:t.date});
+    }
+  });
+  return out.sort((a,b)=>b.dateDisp.localeCompare(a.dateDisp));
+}
+
+function renderTxList(container,list,kind){
+  container.innerHTML="";
+  if(!list.length){ container.innerHTML='<div class="empty">Aucune '+kind+' ce mois-ci.<br>Ajoutez-en une 👈</div>'; return; }
+  list.forEach(t=>{
+    const ci=catInfo(t.type,t.category);
+    const div=document.createElement("div"); div.className="tx"+(t.id===state.editId?" is-editing":"");
+    let recInfo="";
+    if(t.recurring){
+      if(t.annual){
+        const sM=MOIS[+t.date.slice(5,7)-1].slice(0,4), eM=t.endMonth?MOIS[+t.endMonth.slice(5,7)-1].slice(0,4):sM;
+        recInfo=" · 🔁 chaque année ("+sM+". → "+eM+".)";
+      }else{
+        recInfo=" · 🔁 mensuel"+(t.endMonth?(" → "+MOIS[+t.endMonth.slice(5,7)-1].slice(0,4)+". "+t.endMonth.slice(0,4)):" (indéfini)");
+      }
+    }
+    if(t.overridden) recInfo+=' · <span style="color:var(--amber)">✏️ montant ajusté</span>';
+    div.innerHTML=`
+      <div class="ic" style="background:${ci.color}22;color:${ci.color}">${ci.ic}${t.recurring?'<span class="rec">🔁</span>':''}</div>
+      <div class="meta">
+        <div class="t">${esc(t.label)}</div>
+        <div class="d">${t.category}${t.subcategory?' › '+esc(t.subcategory):''} · ${new Date(t.dateDisp).toLocaleDateString('fr-FR')}${recInfo}</div>
+      </div>
+      <div class="amt ${t.type==='revenu'?'pos':'neg'}">${t.type==='revenu'?'+':'−'}${fmt(t.amount).replace('-','')}</div>
+      <div class="acts">
+        <button class="edit" title="Modifier">✎</button>
+        <button class="del" title="Supprimer">×</button>
+      </div>`;
+    div.querySelector(".edit").onclick=()=>startEdit(t.id, monthKey(state.cursor));
+    div.querySelector(".del").onclick=()=>delTx(t.id);
+    container.appendChild(div);
+  });
+}
+function render(){
+  monthLabel.textContent=state.cursor.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const txs=monthTxs();
+  const rev=txs.filter(t=>t.type==="revenu").reduce((s,t)=>s+t.amount,0);
+  const dep=txs.filter(t=>t.type==="depense").reduce((s,t)=>s+t.amount,0);
+  $("totalRev").textContent=fmt(rev);
+  $("totalDep").textContent=fmt(dep);
+  const solde=rev-dep, sEl=$("solde");
+  sEl.textContent=fmt(solde);
+  sEl.className="val "+(solde>=0?"pos":"neg");
+  const depTxs=txs.filter(t=>t.type==='depense');
+  const revTxs=txs.filter(t=>t.type==='revenu');
+  renderTxList($("txListDep"),depTxs,"dépense");
+  renderTxList($("txListRev"),revTxs,"revenu");
+  $("txCountDep").textContent=depTxs.length?depTxs.length+" opération"+(depTxs.length>1?"s":""):"";
+  $("txCountRev").textContent=revTxs.length?revTxs.length+" opération"+(revTxs.length>1?"s":""):"";
+
+  // Dépenses
+  const depEntries=catEntries(txs,"depense");
+  $("depHint").textContent=dep?fmt(dep):"";
+  renderDonut($("donutWrap"),depEntries,dep,"depense");
+  if(!depEntries.length){ catBars.innerHTML='<div class="empty">Pas encore de dépenses.</div>'; }
+  else renderBars(catBars,depEntries,dep,"depense");
+
+  // Revenus
+  const revEntries=catEntries(txs,"revenu");
+  $("revHint").textContent=rev?fmt(rev):"";
+  renderDonut($("donutWrapRev"),revEntries,rev,"revenu");
+  if(!revEntries.length){ $("catBarsRev").innerHTML='<div class="empty">Pas encore de revenus.</div>'; }
+  else renderBars($("catBarsRev"),revEntries,rev,"revenu");
+
+  renderCharts();
+}
+function renderDonut(wrap,entries,total,type){
+  if(!entries.length||!total){ wrap.innerHTML=""; wrap.style.display="none"; return; }
+  wrap.style.display="flex";
+  const r=62, cx=86, cy=86, sw=24, C=2*Math.PI*r;
+  let off=0, segs="";
+  entries.forEach(([cat,val])=>{
+    const ci=catInfo(type,cat);
+    const len=val/total*C;
+    const gap=0.6; // petit espace entre parts
+    segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ci.color}" stroke-width="${sw}"
+      stroke-dasharray="${Math.max(len-gap,0)} ${C-Math.max(len-gap,0)}" stroke-dashoffset="${-off}"
+      transform="rotate(-90 ${cx} ${cy})"><title>${cat} : ${fmt(val)}</title></circle>`;
+    off+=len;
+  });
+  const legend=entries.map(([cat,val])=>{
+    const ci=catInfo(type,cat);
+    const pct=Math.round(val/total*100);
+    return `<div class="li"><span class="sw" style="background:${ci.color}"></span>
+      <span class="ln">${ci.ic} ${cat}</span><span class="lp">${pct}%</span></div>`;
+  }).join("");
+  wrap.innerHTML=`
+    <div class="donut">
+      <svg width="172" height="172" viewBox="0 0 172 172">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${sw}"/>
+        ${segs}
+      </svg>
+      <div class="center"><div class="c-val">${fmt(total)}</div><div class="c-lbl">Total ${type==='revenu'?'revenus':'dépenses'}</div></div>
+    </div>
+    <div class="legend">${legend}</div>`;
+}
+function renderBars(container,entries,total,type){
+  const maxV=Math.max(...entries.map(e=>e[1]),1);
+  container.innerHTML="";
+  if(!entries.length){ container.innerHTML='<div class="empty">Aucune donnée.</div>'; return; }
+  entries.forEach(([cat,val])=>{
+    const ci=catInfo(type,cat);
+    const pct=Math.round(val/total*100);
+    const row=document.createElement("div"); row.className="bar-row";
+    row.innerHTML=`
+      <div class="bar-head">
+        <span class="cat">${ci.ic} ${cat}</span>
+        <span>${fmt(val)} · ${pct}%</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${val/maxV*100}%;background:${ci.color}"></div></div>`;
+    container.appendChild(row);
+  });
+}
+function catEntries(txs,type){
+  const by={};
+  txs.filter(t=>t.type===type).forEach(t=>{ by[t.category]=(by[t.category]||0)+t.amount });
+  return Object.entries(by).sort((a,b)=>b[1]-a[1]);
+}
+
+// ---- Graphiques 12 mois ----
+function addMonthsKey(key,delta){ const [y,m]=key.split('-').map(Number); const idx=y*12+(m-1)+delta; return Math.floor(idx/12)+"-"+String(idx%12+1).padStart(2,'0'); }
+function monthDiff(a,b){ const [ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number); return (yb-ya)*12+(mb-ma); }
+function monthShort(key){ const [y,m]=key.split('-'); return MOIS[+m-1].slice(0,3).toLowerCase()+". "+y.slice(2); }
+function fmtShort(n){ return new Intl.NumberFormat('fr-FR',{notation:'compact',style:'currency',currency:'EUR',maximumFractionDigits:1}).format(n); }
+
+// Une opération apparaît-elle dans le mois "key" (YYYY-MM) ?
+function inAnnualWindow(t,kM){
+  const sM=+t.date.slice(5,7), eM=t.endMonth?+t.endMonth.slice(5,7):sM;
+  return sM<=eM ? (kM>=sM && kM<=eM) : (kM>=sM || kM<=eM); // gère un éventuel chevauchement d'année
+}
+function occursIn(t,key){
+  const S=t.date.slice(0,7);
+  if(!t.recurring) return S===key;
+  if(t.annual){
+    const sY=+t.date.slice(0,4), kY=+key.slice(0,4);
+    return kY>=sY && inAnnualWindow(t,+key.slice(5,7));
+  }
+  return key>=S && (!t.endMonth || key<=t.endMonth);
+}
+// Nombre d'occurrences depuis le début jusqu'au mois "key" inclus (pour le cumul)
+function occurrencesUpTo(t,key){
+  const S=t.date.slice(0,7);
+  if(!t.recurring) return S<=key ? 1 : 0;
+  if(t.annual){
+    const sY=+t.date.slice(0,4), kY=+key.slice(0,4);
+    if(kY<sY) return 0;
+    let count=0;
+    for(let y=sY;y<=kY;y++) for(let m=1;m<=12;m++){
+      if(!inAnnualWindow(t,m)) continue;
+      if((y+"-"+String(m).padStart(2,'0'))<=key) count++;
+    }
+    return count;
+  }
+  if(key<S) return 0;
+  const end=(t.endMonth && t.endMonth<key)?t.endMonth:key;
+  return monthDiff(S,end)+1;
+}
+
+function periodTotals(key){
+  let rev=0,dep=0;
+  state.txs.forEach(t=>{ if(occursIn(t,key)){ const a=effAmount(t,key); if(t.type==='revenu') rev+=a; else dep+=a; } });
+  return {rev,dep,solde:rev-dep};
+}
+function cumulativeAt(key){
+  let total=0;
+  state.txs.forEach(t=>{
+    const sign=t.type==='revenu'?1:-1;
+    let sum=t.amount*occurrencesUpTo(t,key);
+    if(t.overrides) for(const k in t.overrides){
+      if(k<=key && occursIn(t,k) && t.overrides[k].amount!=null) sum+=(t.overrides[k].amount - t.amount);
+    }
+    total+=sign*sum;
+  });
+  return total;
+}
+
+function renderCharts(){
+  const endKey=monthKey(state.cursor);
+  const N=state.chartRange;
+  const keys=[]; for(let i=N-1;i>=0;i--) keys.push(addMonthsKey(endKey,-i));
+  const data=keys.map(k=>({k,...periodTotals(k)}));
+  $("rangeMonths").textContent=N;
+  $("rangeHint").textContent=monthShort(endKey);
+  // n'afficher qu'une étiquette sur labelEvery pour éviter le chevauchement
+  const labelEvery = N>24 ? 3 : (N>12 ? 2 : 1);
+  const showLabel = i => (N-1-i) % labelEvery === 0;
+
+  // --- Histogramme combiné ---
+  const W=760,H=300,L=54,R=14,T=16,B=40;
+  const pW=W-L-R, pH=H-T-B, n=data.length, gW=pW/n;
+  let yMax=Math.max(0,...data.map(d=>Math.max(d.rev,d.dep,d.solde)));
+  let yMin=Math.min(0,...data.map(d=>d.solde));
+  if(yMax===yMin) yMax=yMin+1;
+  const range=yMax-yMin, yOf=v=>T+(yMax-v)/range*pH, zeroY=yOf(0);
+  let gl="",axis="";
+  for(let i=0;i<=4;i++){ const v=yMin+range*i/4, y=yOf(v);
+    gl+=`<line class="gridline" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/>`;
+    axis+=`<text class="axis" x="${L-7}" y="${y+3}" text-anchor="end">${fmtShort(v)}</text>`; }
+  const barW=gW*0.26;
+  let bars="",line="",dots="",labels="";
+  data.forEach((d,i)=>{
+    const gx=L+gW*i+gW/2;
+    bars+=`<rect x="${gx-barW-1.5}" y="${yOf(d.rev)}" width="${barW}" height="${Math.max(zeroY-yOf(d.rev),0)}" rx="2" fill="var(--green)"><title>${monthShort(d.k)} — Revenus : ${fmt(d.rev)}</title></rect>`;
+    bars+=`<rect x="${gx+1.5}" y="${yOf(d.dep)}" width="${barW}" height="${Math.max(zeroY-yOf(d.dep),0)}" rx="2" fill="var(--red)"><title>${monthShort(d.k)} — Dépenses : ${fmt(d.dep)}</title></rect>`;
+    const sy=yOf(d.solde);
+    line+=(i?'L':'M')+gx+","+sy+" ";
+    dots+=`<circle cx="${gx}" cy="${sy}" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"><title>${monthShort(d.k)} — Solde : ${fmt(d.solde)}</title></circle>`;
+    if(showLabel(i)){
+      const [yy,mm]=d.k.split('-');
+      labels+=`<text class="axis" x="${gx}" y="${H-22}" text-anchor="middle">${MOIS[+mm-1].slice(0,3).toLowerCase()}.</text><text class="axis" x="${gx}" y="${H-10}" text-anchor="middle" opacity="0.6">${yy.slice(2)}</text>`;
+    }
+  });
+  const zL=`<line x1="${L}" y1="${zeroY}" x2="${W-R}" y2="${zeroY}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
+  $("chartMonthly").innerHTML=`<svg viewBox="0 0 ${W} ${H}">${gl}${zL}${bars}<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>${dots}${axis}${labels}</svg>`;
+
+  // --- Courbe solde cumulé ---
+  const cum=keys.map(cumulativeAt);
+  const cW=760,cH=240,cL=54,cR=14,cT=16,cB=40;
+  const cpW=cW-cL-cR, cpH=cH-cT-cB;
+  let cMax=Math.max(0,...cum), cMin=Math.min(0,...cum); if(cMax===cMin) cMax=cMin+1;
+  const cRange=cMax-cMin, cyOf=v=>cT+(cMax-v)/cRange*cpH, cxOf=i=> n>1 ? cL+cpW*i/(n-1) : cL+cpW/2, czero=cyOf(0);
+  let cgl="",caxis="",lp="",cdots="",clabels="";
+  for(let i=0;i<=4;i++){ const v=cMin+cRange*i/4, y=cyOf(v);
+    cgl+=`<line class="gridline" x1="${cL}" y1="${y}" x2="${cW-cR}" y2="${y}"/>`;
+    caxis+=`<text class="axis" x="${cL-7}" y="${y+3}" text-anchor="end">${fmtShort(v)}</text>`; }
+  cum.forEach((v,i)=>{
+    const x=cxOf(i), y=cyOf(v);
+    lp+=(i?'L':'M')+x+","+y+" ";
+    cdots+=`<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"><title>${monthShort(keys[i])} : ${fmt(v)}</title></circle>`;
+    if(showLabel(i)){
+      const [yy,mm]=keys[i].split('-');
+      clabels+=`<text class="axis" x="${x}" y="${cH-22}" text-anchor="middle">${MOIS[+mm-1].slice(0,3).toLowerCase()}.</text><text class="axis" x="${x}" y="${cH-10}" text-anchor="middle" opacity="0.6">${yy.slice(2)}</text>`;
+    }
+  });
+  const area=`${lp}L${cxOf(n-1)},${czero} L${cxOf(0)},${czero} Z`;
+  const czL=`<line x1="${cL}" y1="${czero}" x2="${cW-cR}" y2="${czero}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
+  $("chartCumul").innerHTML=`<svg viewBox="0 0 ${cW} ${cH}"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>${cgl}${czL}<path d="${area}" fill="url(#cg)"/><path d="${lp}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${cdots}${caxis}${clabels}</svg>`;
+  $("cumHint").textContent="actuel : "+fmt(cum[n-1]);
+}
+function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+
+// Export / Import
+$("exportBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(state.txs,null,2)],{type:"application/json"});
+  dl(blob,"budget-"+ymd(new Date())+".json");
+};
+$("csvBtn").onclick=()=>{
+  const rows=[["date_debut","type","categorie","sous_categorie","libelle","montant","recurrent","fin","annuel"]];
+  state.txs.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>
+    rows.push([t.date,t.type,t.category,'"'+(t.subcategory||"").replace(/"/g,'""')+'"','"'+t.label.replace(/"/g,'""')+'"',t.amount,t.recurring?"oui":"non",t.endMonth||(t.recurring?"indéfini":""),t.annual?"oui":"non"]));
+  const csv=rows.map(r=>r.join(";")).join("\n");
+  dl(new Blob(["﻿"+csv],{type:"text/csv"}),"budget-"+ymd(new Date())+".csv");
+};
+$("importBtn").onclick=()=>$("importFile").click();
+$("importFile").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const data=JSON.parse(r.result);
+    if(Array.isArray(data)){
+      if(confirm("Remplacer les "+state.txs.length+" opérations actuelles par les "+data.length+" importées ?")){
+        state.txs=data; save(); render();
+      }
+    } else alert("Fichier invalide.");
+  }catch(err){ alert("Impossible de lire le fichier."); } };
+  r.readAsText(f); e.target.value="";
+};
+function dl(blob,name){
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+// ===== Import d'un relevé PDF =====
+let importRows=[], pdfLibPromise=null;
+
+function loadPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(pdfLibPromise) return pdfLibPromise;
+  const base="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  pdfLibPromise=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src=base+"pdf.min.js";
+    s.onload=()=>{ if(window.pdfjsLib){ window.pdfjsLib.GlobalWorkerOptions.workerSrc=base+"pdf.worker.min.js"; res(window.pdfjsLib); } else rej(new Error("pdf.js indisponible")); };
+    s.onerror=()=>rej(new Error("Impossible de charger le lecteur PDF (connexion internet requise)."));
+    document.head.appendChild(s);
+  });
+  return pdfLibPromise;
+}
+
+// Lit le PDF et renvoie les lignes : chaque ligne = [{str,x}], triées de haut en bas
+async function extractPdf(file){
+  const lib=await loadPdfJs();
+  const buf=await file.arrayBuffer();
+  const pdf=await lib.getDocument({data:buf}).promise;
+  const lines=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent();
+    const rows={};
+    tc.items.forEach(it=>{
+      if(!it.str||!it.str.trim()) return;
+      const x=it.transform[4], y=it.transform[5];
+      const key=Math.round(y/2); // tolérance ~ même ligne
+      (rows[key]=rows[key]||[]).push({str:it.str,x,y});
+    });
+    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(k=>{
+      lines.push(rows[k].sort((a,b)=>a.x-b.x));
+    });
+  }
+  return lines;
+}
+
+// Règles de catégorisation par mots-clés du libellé
+const CAT_RULES=[
+  [/carrefour|leclerc|auchan|lidl|aldi|intermarch|monoprix|franprix|casino|super\s?u|hyper\s?u|cora|picard|grand\s?frais|biocoop|boulang|primeur|naturalia|g20|spar\b/i,"Alimentation"],
+  [/restaurant|resto|mcdo|mc\s?donald|burger|kfc|quick|subway|uber\s?eats|deliveroo|just\s?eat|brasserie|pizz|sushi|kebab|starbucks|paul\b/i,"Restaurant"],
+  [/sncf|ratp|ouigo|tgv|bla\s?bla|uber(?!\s?eats)|bolt|taxi|essence|carburant|total\s?energ|total\b|esso|\bbp\b|shell|station|p[ée]age|autoroute|vinci|parking|indigo|v[ée]lib|trottinette|avia|sodexo\s?parking/i,"Transport"],
+  [/\bedf\b|engie|\bgaz\b|total\s?direct|veolia|suez|\beau\b|\bfree\b|freebox|orange|\bsfr\b|bouygues|sosh|red\s?by|internet|t[ée]l[ée]phon|mobile|abonnement/i,"Factures"],
+  [/loyer|syndic|copropri|foncia|nexity|century\s?21|square\s?habitat|immobili/i,"Logement"],
+  [/pharmacie|docteur|m[ée]decin|h[ôo]pital|clinique|laboratoire|\blabo\b|dentiste|opticien|mutuelle|\bcpam\b|kine|infirmi|radiolog/i,"Santé"],
+  [/imp[ôo]t|dgfip|tr[ée]sor\s?public|finances\s?publiques|\btaxe\b|amende|urssaf/i,"Impôts"],
+  [/amazon|fnac|darty|\bzara\b|h\s?&\s?m|uniqlo|kiabi|decathlon|\bikea\b|leroy\s?merlin|castorama|\bbut\b|conforama|cdiscount|zalando|aliexpress|shein|action\b|gifi/i,"Shopping"],
+  [/netflix|spotify|deezer|disney|canal\+?|cin[ée]ma|\bugc\b|path[ée]|gaumont|concert|fitness|basic\s?fit|salle\s?de\s?sport|steam|playstation|nintendo|xbox|twitch/i,"Loisirs"],
+  [/scolarit|universit|\b[ée]cole\b|cr[èe]che|formation|udemy|librairie|fournitures/i,"Éducation"]
+];
+const CAT_RULES_REV=[
+  [/salaire|\bpaie\b|\bpaye\b|r[ée]mun[ée]ration|traitement|\bpaie\b/i,"Salaire"],
+  [/remboursement|\bremb\b|\bcpam\b|ameli|s[ée]cu|mutuelle/i,"Remboursement"],
+  [/dividende/i,"Dividendes"],
+  [/int[ée]r[êe]t/i,"Investissement"],
+  [/freelance|honoraire|facture\b|mission/i,"Freelance"]
+];
+function categorize(label,type){
+  const rules=type==='revenu'?CAT_RULES_REV:CAT_RULES;
+  for(const [re,cat] of rules){ if(re.test(label)) return cat; }
+  return "Autre";
+}
+
+// Analyse les lignes extraites → opérations candidates
+function parseStatement(lines){
+  const fallbackYear=(new Date()).getFullYear();
+  let year=fallbackYear;
+  for(const items of lines){ const m=items.map(i=>i.str).join(" ").match(/\b(20\d{2})\b/); if(m){ year=+m[1]; break; } }
+
+  const amtRe=/(-)?\(?(\d{1,3}(?:[\s.]\d{3})+|\d+),(\d{2})\)?(-)?/g;
+  const dateRe=/\b(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/;
+  const parsed=[], amtXs=[];
+
+  for(const items of lines){
+    const text=items.map(i=>i.str).join(" ");
+    const dateM=text.match(dateRe);
+    const amts=[]; let m; amtRe.lastIndex=0;
+    while((m=amtRe.exec(text))){
+      const neg=!!(m[1]||m[4]);
+      const val=parseFloat(m[2].replace(/[\s.]/g,"")+"."+m[3]);
+      amts.push({val,neg,raw:m[0]});
+    }
+    const amtItemXs=items.filter(i=>/\d,\d{2}/.test(i.str)).map(i=>i.x);
+    amtItemXs.forEach(x=>amtXs.push(x));
+    parsed.push({text,dateM,amts,amtItemXs});
+  }
+
+  // Regroupe les positions horizontales des montants en colonnes
+  amtXs.sort((a,b)=>a-b);
+  const cols=[];
+  amtXs.forEach(x=>{ const last=cols[cols.length-1];
+    if(!last||x-last.max>40) cols.push({max:x,sum:x,n:1});
+    else { last.max=x; last.sum+=x; last.n++; }
+  });
+  const centers=cols.map(c=>c.sum/c.n);
+  const balanceC=centers.length>=3?centers[centers.length-1]:null; // 3e colonne = solde présumé
+  const nearestCol=x=>{ let best=Infinity,idx=-1; centers.forEach((c,i)=>{const d=Math.abs(c-x);if(d<best){best=d;idx=i;}}); return idx; };
+
+  const rows=[];
+  parsed.forEach(p=>{
+    if(!p.dateM||!p.amts.length) return;
+    const dd=p.dateM[1], mm=p.dateM[2];
+    let yy=p.dateM[3]; yy = yy ? (yy.length===2?2000+ +yy:+yy) : year;
+    if(+mm<1||+mm>12||+dd<1||+dd>31) return;
+    const date=yy+"-"+mm+"-"+dd;
+
+    let chosen=null, type=null;
+    if(centers.length>=2){
+      for(let i=0;i<p.amts.length;i++){
+        const x=p.amtItemXs[i]; if(x==null) continue;
+        const col=nearestCol(x);
+        if(balanceC!=null && centers[col]===balanceC) continue; // ignore la colonne solde
+        chosen=p.amts[i];
+        type = col===1 ? "revenu" : (col===0 ? "depense" : null);
+        if(type) break;
+      }
+    }
+    if(!chosen){ chosen=p.amts[0]; type="depense"; }
+    if(chosen.neg) type="depense";
+    if(!type) type="depense";
+
+    let label=p.text.replace(p.dateM[0]," ");
+    p.amts.forEach(a=>{ label=label.replace(a.raw," "); });
+    label=label.replace(/\s+/g," ").trim().slice(0,60)||"Opération";
+
+    rows.push({include:true,date,label,amount:Math.abs(chosen.val),type,category:categorize(label,type),subcategory:""});
+  });
+  return rows;
+}
+
+function openImport(){ $("importModal").style.display="flex"; $("impTools").style.display="none"; $("impConfirm").disabled=true; }
+function closeImport(){ $("importModal").style.display="none"; importRows=[]; }
+function setImpMsg(msg){ $("impSummary").textContent=msg; $("impTableWrap").innerHTML='<div class="imp-loading">'+esc(msg)+'</div>'; }
+
+function subOpts(cat){
+  return (SUBCATS[cat]||[]).slice().sort((a,b)=>a.localeCompare(b,'fr')).map(s=>'<option value="'+esc(s)+'">').join("");
+}
+function updImpSummary(){
+  const sel=importRows.filter(r=>r.include);
+  const rev=sel.filter(r=>r.type==='revenu').reduce((s,r)=>s+r.amount,0);
+  const dep=sel.filter(r=>r.type==='depense').reduce((s,r)=>s+r.amount,0);
+  $("impSummary").innerHTML=importRows.length+" opération(s) détectée(s) · "+sel.length+" sélectionnée(s) — Revenus "+fmt(rev)+" · Dépenses "+fmt(dep);
+}
+
+function renderImportTable(){
+  const wrap=$("impTableWrap");
+  if(!importRows.length){ setImpMsg("Aucune opération détectée. Le format de ce relevé n'est peut-être pas reconnu."); return; }
+  let body="";
+  importRows.forEach((r,i)=>{
+    const opts=CATS[r.type==='revenu'?'revenu':'depense'].slice().sort(alphaCat)
+      .map(c=>'<option value="'+c.name+'"'+(c.name===r.category?' selected':'')+'>'+c.ic+' '+c.name+'</option>').join("");
+    body+='<tr class="'+(r.include?'':'off')+'" data-i="'+i+'">'
+      +'<td><input type="checkbox" class="imp-inc"'+(r.include?' checked':'')+'></td>'
+      +'<td><input type="date" class="imp-date" value="'+r.date+'"></td>'
+      +'<td><input type="text" class="imp-label" value="'+esc(r.label)+'"></td>'
+      +'<td><select class="imp-cat">'+opts+'</select></td>'
+      +'<td><input type="text" class="imp-sub" list="imp-sub-'+i+'" value="'+esc(r.subcategory||"")+'" placeholder="—"><datalist id="imp-sub-'+i+'">'+subOpts(r.category)+'</datalist></td>'
+      +'<td><button class="type-pill '+(r.type==='revenu'?'rev':'dep')+'">'+(r.type==='revenu'?'Revenu':'Dépense')+'</button></td>'
+      +'<td><input type="number" class="imp-amt" step="0.01" min="0" value="'+r.amount.toFixed(2)+'"></td>'
+      +'</tr>';
+  });
+  wrap.innerHTML='<table class="imp-table"><thead><tr><th></th><th>Date</th><th>Libellé</th><th>Catégorie</th><th>Sous-catégorie</th><th>Type</th><th>Montant (€)</th></tr></thead><tbody>'+body+'</tbody></table>';
+  wrap.querySelectorAll("tbody tr").forEach(tr=>{
+    const i=+tr.dataset.i, r=importRows[i];
+    tr.querySelector(".imp-inc").onchange=e=>{ r.include=e.target.checked; tr.classList.toggle("off",!r.include); $("impAll").checked=importRows.every(x=>x.include); updImpSummary(); };
+    tr.querySelector(".imp-date").onchange=e=>{ r.date=e.target.value; };
+    tr.querySelector(".imp-label").onchange=e=>{ r.label=e.target.value; };
+    tr.querySelector(".imp-cat").onchange=e=>{ r.category=e.target.value; const dl=tr.querySelector(".imp-sub").nextElementSibling; if(dl) dl.innerHTML=subOpts(r.category); };
+    tr.querySelector(".imp-sub").onchange=e=>{ r.subcategory=e.target.value; };
+    tr.querySelector(".imp-amt").onchange=e=>{ r.amount=parseFloat(e.target.value)||0; updImpSummary(); };
+    tr.querySelector(".type-pill").onclick=()=>{ r.type=r.type==='revenu'?'depense':'revenu'; r.category=categorize(r.label,r.type); renderImportTable(); };
+  });
+  $("impTools").style.display="flex";
+  $("impConfirm").disabled=false;
+  $("impAll").checked=importRows.every(r=>r.include);
+  updImpSummary();
+}
+
+function confirmImport(){
+  const sel=importRows.filter(r=>r.include && r.amount>0 && r.date && r.label);
+  if(!sel.length){ alert("Aucune opération valide sélectionnée (montant et date requis)."); return; }
+  let last=null;
+  sel.forEach(r=>{
+    state.txs.push({id:uid(),type:r.type,label:r.label,amount:Math.abs(r.amount),category:r.category,subcategory:r.subcategory||"",date:r.date,recurring:false,endMonth:null,annual:false});
+    if(!last||r.date>last) last=r.date;
+  });
+  save();
+  if(last){ const [y,mo]=last.split("-").map(Number); state.cursor=new Date(y,mo-1,1); }
+  closeImport();
+  switchTab("dep");
+  render();
+  alert(sel.length+" opération(s) ajoutée(s).");
+}
+
+$("pdfBtn").onclick=()=>$("pdfFile").click();
+$("pdfFile").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  openImport(); setImpMsg("Lecture du PDF…");
+  try{
+    const lines=await extractPdf(f);
+    importRows=parseStatement(lines);
+    renderImportTable();
+  }catch(err){ console.error(err); setImpMsg("Erreur : "+(err&&err.message||err)); }
+};
+$("impClose").onclick=closeImport;
+$("impCancel").onclick=closeImport;
+$("impConfirm").onclick=confirmImport;
+$("impAll").onchange=e=>{ importRows.forEach(r=>r.include=e.target.checked); renderImportTable(); };
+$("impInvert").onclick=()=>{ importRows.forEach(r=>{ r.type=r.type==='revenu'?'depense':'revenu'; r.category=categorize(r.label,r.type); }); renderImportTable(); };
+$("importModal").onclick=e=>{ if(e.target===$("importModal")) closeImport(); };
+
+// thème clair / sombre
+const THEME_KEY="monbudget_theme";
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme",t);
+  $("themeBtn").textContent = t==="light" ? "☀️" : "🌙";
+  $("themeBtn").title = t==="light" ? "Passer en mode sombre" : "Passer en mode clair";
+}
+function initTheme(){
+  let t=localStorage.getItem(THEME_KEY);
+  if(!t) t = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  applyTheme(t);
+}
+$("themeBtn").onclick=()=>{
+  const next=document.documentElement.getAttribute("data-theme")==="light"?"dark":"light";
+  localStorage.setItem(THEME_KEY,next); applyTheme(next);
+};
+initTheme();
+
+// init
+switchTab("dep");
+render();
+</script>
+</body>
+</html>
