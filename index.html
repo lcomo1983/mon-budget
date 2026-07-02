@@ -384,7 +384,7 @@
   <div class="tabpane" id="pane-charts" style="display:none">
   <div class="panel">
     <h2>
-      <span>Évolution sur <span id="rangeMonths">12</span> mois <span class="hint">jusqu'à <span id="rangeHint"></span></span></span>
+      <span>Évolution sur <span id="rangeMonths">12</span> mois <span class="hint">centré sur <span id="rangeHint"></span></span></span>
       <span class="range-sel" id="rangeSel">
         <button data-range="12" class="active">12</button>
         <button data-range="24">24</button>
@@ -1029,13 +1029,14 @@ function cumulativeAt(key){
 function renderCharts(){
   const endKey=monthKey(state.cursor);
   const N=state.chartRange;
-  const keys=[]; for(let i=N-1;i>=0;i--) keys.push(addMonthsKey(endKey,-i));
+  const centerIdx=Math.floor(N/2);
+  const keys=[]; for(let i=-centerIdx;i<N-centerIdx;i++) keys.push(addMonthsKey(endKey,i));
   const data=keys.map(k=>({k,...periodTotals(k)}));
   $("rangeMonths").textContent=N;
   $("rangeHint").textContent=monthShort(endKey);
-  // n'afficher qu'une étiquette sur labelEvery pour éviter le chevauchement
+  // n'afficher qu'une étiquette sur labelEvery ; le mois courant (centre) est toujours étiqueté
   const labelEvery = N>24 ? 3 : (N>12 ? 2 : 1);
-  const showLabel = i => (N-1-i) % labelEvery === 0;
+  const showLabel = i => Math.abs(i-centerIdx) % labelEvery === 0;
 
   // --- Histogramme combiné ---
   const W=760,H=300,L=54,R=14,T=16,B=40;
@@ -1049,6 +1050,8 @@ function renderCharts(){
     gl+=`<line class="gridline" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/>`;
     axis+=`<text class="axis" x="${L-7}" y="${y+3}" text-anchor="end">${fmtShort(v)}</text>`; }
   const barW=gW*0.26;
+  const bandX=L+gW*centerIdx, markerX=bandX+gW/2;
+  const marker=`<rect x="${bandX}" y="${T}" width="${gW}" height="${pH}" fill="var(--accent)" opacity="0.08"/><line x1="${markerX}" y1="${T}" x2="${markerX}" y2="${H-B}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`;
   let bars="",line="",dots="",labels="";
   data.forEach((d,i)=>{
     const gx=L+gW*i+gW/2;
@@ -1063,7 +1066,7 @@ function renderCharts(){
     }
   });
   const zL=`<line x1="${L}" y1="${zeroY}" x2="${W-R}" y2="${zeroY}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
-  $("chartMonthly").innerHTML=`<svg viewBox="0 0 ${W} ${H}">${gl}${zL}${bars}<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>${dots}${axis}${labels}</svg>`;
+  $("chartMonthly").innerHTML=`<svg viewBox="0 0 ${W} ${H}">${gl}${marker}${zL}${bars}<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>${dots}${axis}${labels}</svg>`;
 
   // --- Courbe solde cumulé ---
   const cum=keys.map(cumulativeAt);
@@ -1086,8 +1089,10 @@ function renderCharts(){
   });
   const area=`${lp}L${cxOf(n-1)},${czero} L${cxOf(0)},${czero} Z`;
   const czL=`<line x1="${cL}" y1="${czero}" x2="${cW-cR}" y2="${czero}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
-  $("chartCumul").innerHTML=`<svg viewBox="0 0 ${cW} ${cH}"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>${cgl}${czL}<path d="${area}" fill="url(#cg)"/><path d="${lp}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${cdots}${caxis}${clabels}</svg>`;
-  $("cumHint").textContent="actuel : "+fmt(cum[n-1]);
+  const cmarkerX=cxOf(centerIdx);
+  const cmarker=`<line x1="${cmarkerX}" y1="${cT}" x2="${cmarkerX}" y2="${cH-cB}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`;
+  $("chartCumul").innerHTML=`<svg viewBox="0 0 ${cW} ${cH}"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>${cgl}${cmarker}${czL}<path d="${area}" fill="url(#cg)"/><path d="${lp}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${cdots}${caxis}${clabels}</svg>`;
+  $("cumHint").textContent="au "+monthShort(keys[centerIdx])+" : "+fmt(cum[centerIdx]);
 }
 function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
 
