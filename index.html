@@ -312,6 +312,10 @@
                   <label>Année</label>
                   <input type="number" id="startYear" min="2000" max="2100" step="1">
                 </div>
+                <div class="field" style="flex:0 0 100px">
+                  <label>Jour du mois</label>
+                  <input type="number" id="startDay" min="1" max="31" step="1" value="1">
+                </div>
               </div>
               <div class="row" id="endRow" style="display:none;margin-bottom:0">
                 <div class="field">
@@ -678,7 +682,8 @@ function readForm(){
     date=$("date").value;
   }else{
     const sy=parseInt($("startYear").value), sm=$("startMonth").value;
-    date=(sy&&sm)?(sy+"-"+sm+"-01"):"";
+    const sd=String(Math.min(31,Math.max(1,parseInt($("startDay").value)||1))).padStart(2,'0');
+    date=(sy&&sm)?(sy+"-"+sm+"-"+sd):"";
     recurring=true;
     if(freq==='period'){
       const ey=parseInt($("endYear").value), em=$("endMonth").value;
@@ -729,7 +734,7 @@ function resetForm(){
   document.querySelector('input[name="freq"][value="once"]').checked=true;
   const now=new Date(), mm=String(now.getMonth()+1).padStart(2,'0'), yy=now.getFullYear();
   $("date").value=ymd(now);
-  $("startMonth").value=mm; $("startYear").value=yy;
+  $("startMonth").value=mm; $("startYear").value=yy; $("startDay").value=1;
   $("endMonth").value=mm; $("endYear").value=yy;
   $("annual").checked=false;
   syncFreqUI();
@@ -756,6 +761,7 @@ function startEdit(id, monthK){
   }else{
     $("startMonth").value=t.date.slice(5,7);
     $("startYear").value=t.date.slice(0,4);
+    $("startDay").value=parseInt(t.date.slice(8,10))||1;
     if(freq==='period' && t.endMonth){
       $("endMonth").value=t.endMonth.slice(5,7);
       $("endYear").value=t.endMonth.slice(0,4);
