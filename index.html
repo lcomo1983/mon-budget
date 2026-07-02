@@ -267,6 +267,14 @@
       <div class="panel" id="formPanel" style="margin-bottom:20px">
         <h2><span id="formTitle">Ajouter une opération</span><span class="edit-badge" id="editBadge" style="display:none">Modification</span></h2>
         <form id="txForm">
+          <div class="recur" id="editType" style="display:none">
+            <label style="margin-bottom:8px">Type d'opération</label>
+            <div class="radios">
+              <label class="radio-pill" id="etDep"><input type="radio" name="etype" value="depense"> 💸 Dépense</label>
+              <label class="radio-pill" id="etRev"><input type="radio" name="etype" value="revenu"> 💰 Revenu</label>
+              <label class="radio-pill" id="etEpa"><input type="radio" name="etype" value="epargne"> 🏦 Épargne</label>
+            </div>
+          </div>
           <div class="recur" id="editScope" style="display:none">
             <label style="margin-bottom:8px">Modifier</label>
             <div class="radios">
@@ -672,6 +680,20 @@ function applyScopeUI(t){
 document.querySelectorAll('input[name="scope"]').forEach(r=>r.onchange=()=>{
   const t=state.txs.find(x=>x.id===state.editId); if(t) applyScopeUI(t);
 });
+// Sélecteur de type en modification (dépense / revenu / épargne)
+function highlightEtype(){
+  const v=state.type;
+  $("etDep").classList.toggle("sel",v==='depense');
+  $("etRev").classList.toggle("sel",v==='revenu');
+  $("etEpa").classList.toggle("sel",v==='epargne');
+}
+document.querySelectorAll('input[name="etype"]').forEach(r=>r.onchange=()=>{
+  const v=document.querySelector('input[name="etype"]:checked').value;
+  const keep=$("category").value;
+  setType(v);            // change state.type + recharge les catégories
+  fillCats(keep);        // conserve la catégorie si elle existe dans le nouveau type
+  highlightEtype();
+});
 $("resetOvBtn").onclick=()=>{
   const t=state.txs.find(x=>x.id===state.editId); if(!t||!t.overrides) return;
   delete t.overrides[state.editMonth];
@@ -777,22 +799,26 @@ $("txForm").onsubmit=e=>{
   if(data.recurring && !data.annual && data.endMonth && data.endMonth < data.date.slice(0,7)){
     alert("Le mois de fin est antérieur au mois de début."); return;
   }
+  let switchTo=null;
   if(state.editId){
     const t=state.txs.find(x=>x.id===state.editId);
+    const typeChanged = t && data.type!==t.type;
     if(t){
-      if(state.editScope==='month' && t.recurring){
+      if(state.editScope==='month' && t.recurring && !typeChanged){
         t.overrides=t.overrides||{};
         t.overrides[state.editMonth]={amount:data.amount};
       }else{
         Object.assign(t,data);
       }
     }
+    if(typeChanged) switchTo=typeTab(data.type);
     exitEdit();
   }else{
     state.txs.push({id:uid(),...data});
   }
   save();
   resetForm();
+  if(switchTo) switchTab(switchTo);
   render();
 };
 
@@ -835,6 +861,10 @@ function startEdit(id, monthK){
     }
   }
   syncFreqUI();
+  // sélecteur de type (modifiable)
+  $("editType").style.display="block";
+  document.querySelector('input[name="etype"][value="'+t.type+'"]').checked=true;
+  highlightEtype();
   if(t.recurring){
     $("editScope").style.display="block";
     document.querySelector('input[name="scope"][value="month"]').checked=true;
@@ -853,6 +883,7 @@ function startEdit(id, monthK){
 }
 function exitEdit(){
   state.editId=null; state.editScope='series'; state.editMonth=null;
+  $("editType").style.display="none";
   $("editScope").style.display="none";
   $("editBadge").style.display="none";
   $("cancelBtn").style.display="none";
