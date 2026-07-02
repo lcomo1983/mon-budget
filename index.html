@@ -196,7 +196,9 @@
   .auth-actions{display:flex;gap:10px;margin-top:20px}
   .auth-actions .btn{flex:1}
   .auth-err{border-radius:10px;padding:10px;font-size:13px;margin-bottom:8px;border:1px solid transparent}
-  .auth-note{color:var(--muted);font-size:12px;margin-top:14px;min-height:16px}
+  .auth-link{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12.5px;margin-top:14px;text-decoration:underline;font-weight:600}
+  .auth-link:hover{color:var(--accent-2)}
+  .auth-note{color:var(--muted);font-size:12px;margin-top:10px;min-height:16px}
   .user-box{display:flex;align-items:center;gap:8px}
   .user-email{color:var(--text);font-size:12px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sync-badge{font-size:11px;color:var(--muted);white-space:nowrap}
@@ -225,6 +227,7 @@
           <span class="user-email" id="userEmail"></span>
           <span class="sync-badge" id="syncBadge"></span>
         </div>
+        <button id="acctBtn" class="theme-btn" title="Mon compte (mot de passe)">⚙️</button>
         <button id="logoutBtn" class="theme-btn" title="Se déconnecter">⎋</button>
       </div>
     </div>
@@ -458,6 +461,25 @@
   </div>
 </div>
 
+<!-- ===== MODAL MON COMPTE ===== -->
+<div class="modal-ov" id="acctModal" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <h2>⚙️ Mon compte</h2>
+      <button class="theme-btn" id="acctClose" title="Fermer">×</button>
+    </div>
+    <div style="padding:18px 20px">
+      <div class="sub" style="color:var(--muted);font-size:13px;margin-bottom:14px">Connecté : <b id="acctEmail"></b></div>
+      <div class="auth-err" id="acctMsg" style="display:none"></div>
+      <label>Nouveau mot de passe</label>
+      <input type="password" id="acctPw1" placeholder="••••••••" autocomplete="new-password">
+      <label style="margin-top:10px">Confirmer le mot de passe</label>
+      <input type="password" id="acctPw2" placeholder="••••••••" autocomplete="new-password">
+      <button class="btn" id="acctSave" style="margin-top:16px;width:100%">Changer le mot de passe</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== ÉCRAN DE CONNEXION ===== -->
 <div class="auth-screen" id="authScreen">
   <div class="auth-card">
@@ -473,6 +495,7 @@
       <button class="btn" id="loginBtn">Se connecter</button>
       <button class="btn ghost" id="signupBtn">Créer un compte</button>
     </div>
+    <button type="button" class="auth-link" id="forgotBtn">Mot de passe oublié ?</button>
     <div class="auth-note" id="authNote"></div>
   </div>
 </div>
@@ -1477,6 +1500,33 @@ async function doSignup(){
   if(data.session && data.user){ await onLogin(data.user); }
   else { authErr("Compte créé ✅ Vérifie ta boîte mail pour confirmer, puis connecte-toi.", true); }
 }
+// --- Mon compte : changer le mot de passe ---
+function acctMsg(m,ok){ const e=$("acctMsg"); e.textContent=m; e.style.display="block";
+  e.style.background=ok?"rgba(46,204,113,.12)":"rgba(255,92,108,.12)";
+  e.style.color=ok?"var(--green)":"var(--red)"; e.style.borderColor=ok?"rgba(46,204,113,.3)":"rgba(255,92,108,.3)"; }
+function openAcct(){ $("acctEmail").textContent=currentUser?currentUser.email:""; $("acctMsg").style.display="none"; $("acctPw1").value=""; $("acctPw2").value=""; $("acctModal").style.display="flex"; }
+function closeAcct(){ $("acctModal").style.display="none"; }
+async function saveNewPassword(){
+  if(!sb) return;
+  const p1=$("acctPw1").value, p2=$("acctPw2").value;
+  if(p1.length<6){ acctMsg("Le mot de passe doit faire au moins 6 caractères.",false); return; }
+  if(p1!==p2){ acctMsg("Les deux mots de passe ne correspondent pas.",false); return; }
+  $("acctSave").disabled=true;
+  const { error } = await sb.auth.updateUser({ password:p1 });
+  $("acctSave").disabled=false;
+  if(error){ acctMsg(traduitAuth(error.message),false); return; }
+  acctMsg("✅ Mot de passe modifié.",true);
+  $("acctPw1").value=""; $("acctPw2").value="";
+}
+async function sendReset(){
+  if(!sb) return;
+  const email=$("authEmail").value.trim();
+  if(!email){ authErr("Saisis d'abord ton e-mail, puis clique sur « Mot de passe oublié ? »."); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split('#')[0] });
+  if(error){ authErr(traduitAuth(error.message)); return; }
+  authErr("📧 Si un compte existe pour "+email+", un e-mail de réinitialisation a été envoyé.", true);
+}
+
 async function boot(){
   if(!initSupabase()){
     showAuth();
@@ -1486,10 +1536,22 @@ async function boot(){
   }
   $("loginBtn").onclick=doLogin;
   $("signupBtn").onclick=doSignup;
+  $("forgotBtn").onclick=sendReset;
   $("logoutBtn").onclick=()=>sb.auth.signOut();
+  $("acctBtn").onclick=openAcct;
+  $("acctClose").onclick=closeAcct;
+  $("acctModal").onclick=e=>{ if(e.target===$("acctModal")) closeAcct(); };
+  $("acctSave").onclick=saveNewPassword;
   $("authPw").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
   $("authEmail").addEventListener("keydown",e=>{ if(e.key==="Enter") $("authPw").focus(); });
-  sb.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_OUT') onLogout(); });
+  $("acctPw2").addEventListener("keydown",e=>{ if(e.key==="Enter") saveNewPassword(); });
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(event==='SIGNED_OUT') onLogout();
+    else if(event==='PASSWORD_RECOVERY'){
+      if(session && session.user) onLogin(session.user);
+      openAcct(); acctMsg("Choisis ton nouveau mot de passe.",true);
+    }
+  });
   try{
     const { data:{ session } } = await sb.auth.getSession();
     if(session && session.user) await onLogin(session.user);
