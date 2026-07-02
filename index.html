@@ -1178,15 +1178,21 @@ const CAT_RULES=[
   [/imp[ôo]t|dgfip|tr[ée]sor\s?public|finances\s?publiques|\btaxe\b|amende|urssaf/i,"Impôts"],
   [/amazon|fnac|darty|\bzara\b|h\s?&\s?m|uniqlo|kiabi|decathlon|\bikea\b|leroy\s?merlin|castorama|\bbut\b|conforama|cdiscount|zalando|aliexpress|shein|action\b|gifi/i,"Shopping"],
   [/netflix|spotify|deezer|disney|canal\+?|cin[ée]ma|\bugc\b|path[ée]|gaumont|concert|fitness|basic\s?fit|salle\s?de\s?sport|steam|playstation|nintendo|xbox|twitch/i,"Loisirs"],
-  [/scolarit|universit|\b[ée]cole\b|cr[èe]che|formation|udemy|librairie|fournitures/i,"Éducation"]
+  [/scolarit|universit|\b[ée]cole\b|cr[èe]che|formation|udemy|librairie|fournitures/i,"Éducation"],
+  [/livret\s?a\b|\bldds\b|\blep\b|\bpel\b|\bcel\b|\bpea\b|assurance\s?vie|versement.{0,12}[ée]pargne|[ée]pargne|\bcto\b/i,"Épargne"],
+  [/maif|macif|maaf|\bgmf\b|matmut|\baxa\b|allianz|groupama|generali|\bmma\b|april\b|swiss\s?life|direct\s?assurance|assurance/i,"Assurances"],
+  [/frais\s?bancaire|cotisation\s?carte|commission\s?d.?interv|agios|frais\s?de\s?tenue|tenue\s?de\s?compte|frais\s?carte|quittance\s?bancaire/i,"Banque"]
 ];
 const CAT_RULES_REV=[
-  [/salaire|\bpaie\b|\bpaye\b|r[ée]mun[ée]ration|traitement|\bpaie\b/i,"Salaire"],
+  [/salaire|\bpaie\b|\bpaye\b|r[ée]mun[ée]ration|traitement/i,"Salaire"],
   [/remboursement|\bremb\b|\bcpam\b|ameli|s[ée]cu|mutuelle/i,"Remboursement"],
   [/dividende/i,"Dividendes"],
   [/int[ée]r[êe]t/i,"Investissement"],
   [/freelance|honoraire|facture\b|mission/i,"Freelance"]
 ];
+// Mots-clés pour déduire dépense vs revenu depuis un libellé de relevé
+const DEP_KW=/pr[ée]l[èe]?v|\bprlv\b|paiement|\bpaieme|achat|\bcb\b|carte\s?banc|retrait|\bfrais\b|cotisation|commission|[ée]ch[ée]ance|facture|loyer|abonnement|virement\s?[ée]mis|vir\s?[ée]mis/i;
+const REV_KW=/salaire|r[ée]mun[ée]ration|virement\s?re[çc]u|vir\s?re[çc]u|virement\s?de\b|remboursement|\bremb\b|d[ée]p[ôo]t|allocation|\bcaf\b|p[ôo]le\s?emploi|\bapl\b|pension|retraite|dividende/i;
 function categorize(label,type){
   const rules=type==='revenu'?CAT_RULES_REV:CAT_RULES;
   for(const [re,cat] of rules){ if(re.test(label)) return cat; }
@@ -1236,24 +1242,36 @@ function parseStatement(lines){
     if(+mm<1||+mm>12||+dd<1||+dd>31) return;
     const date=yy+"-"+mm+"-"+dd;
 
-    let chosen=null, type=null;
+    // choisir le montant d'opération (ignorer la colonne solde si détectée)
+    let chosen=null, chosenX=null;
     if(centers.length>=2){
       for(let i=0;i<p.amts.length;i++){
         const x=p.amtItemXs[i]; if(x==null) continue;
         const col=nearestCol(x);
         if(balanceC!=null && centers[col]===balanceC) continue; // ignore la colonne solde
-        chosen=p.amts[i];
-        type = col===1 ? "revenu" : (col===0 ? "depense" : null);
-        if(type) break;
+        chosen=p.amts[i]; chosenX=x; break;
       }
     }
-    if(!chosen){ chosen=p.amts[0]; type="depense"; }
-    if(chosen.neg) type="depense";
+    if(!chosen){ chosen=p.amts[0]; chosenX = p.amtItemXs[0]!=null ? p.amtItemXs[0] : null; }
+
+    // type : mots-clés prioritaires, puis signe, puis colonne, défaut dépense
+    let type=null;
+    const low=p.text.toLowerCase();
+    if(DEP_KW.test(low)) type="depense";
+    else if(REV_KW.test(low)) type="revenu";
+    if(!type && chosen.neg) type="depense";
+    if(!type && chosenX!=null && centers.length>=2){ const col=nearestCol(chosenX); type = col===1?"revenu":(col===0?"depense":null); }
     if(!type) type="depense";
 
+    // libellé : retirer date, montants et suffixes parasites courants
     let label=p.text.replace(p.dateM[0]," ");
     p.amts.forEach(a=>{ label=label.replace(a.raw," "); });
-    label=label.replace(/\s+/g," ").trim().slice(0,60)||"Opération";
+    label=label
+      .replace(/\s*\/?\s*eur\s+le\b.*$/i,"")
+      .replace(/\btransaction\s?initiale\b.*$/i,"")
+      .replace(/\bdate\s?de\s?valeur\b.*$/i,"")
+      .replace(/\bvaleur\s?:?\s?\d.*$/i,"")
+      .replace(/\s+/g," ").trim().slice(0,60)||"Opération";
 
     rows.push({include:true,date,label,amount:Math.abs(chosen.val),type,category:categorize(label,type),subcategory:""});
   });
