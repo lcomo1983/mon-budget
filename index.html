@@ -8,14 +8,14 @@
   :root{
     --bg:#0f1419; --surface:#1a2230; --surface-2:#232d3f; --border:#2c3850;
     --text:#e6edf3; --muted:#8b98a9; --accent:#4f8cff; --accent-2:#3a6fd8;
-    --green:#2ecc71; --red:#ff5c6c; --amber:#f5b945; --sav:#16c79a; --radius:14px;
+    --green:#2ecc71; --red:#ff5c6c; --amber:#f5b945; --sav:#3a63de; --radius:14px;
     --shadow:0 8px 24px rgba(0,0,0,.35);
     --page-bg:linear-gradient(160deg,#0b0f16,#0f1419 40%,#121a26);
   }
   html[data-theme="light"]{
     --bg:#f4f6fb; --surface:#ffffff; --surface-2:#eef1f7; --border:#dde3ee;
     --text:#1c2433; --muted:#6b7689; --accent:#3a6fd8; --accent-2:#2f5cc0;
-    --green:#1ca85a; --red:#e23b4e; --amber:#d99a16; --sav:#12a884;
+    --green:#1ca85a; --red:#e23b4e; --amber:#d99a16; --sav:#2a52be;
     --shadow:0 6px 18px rgba(60,80,120,.12);
     --page-bg:linear-gradient(160deg,#eef2fa,#f4f6fb 40%,#e9eef9);
   }
@@ -179,7 +179,7 @@
   .imp-table input[type=date]{width:148px}
   .imp-table input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.2)}
   .type-pill{border:none;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer;font-size:12px;color:#fff;white-space:nowrap}
-  .type-pill.rev{background:var(--green)} .type-pill.dep{background:var(--red)}
+  .type-pill.rev{background:var(--green)} .type-pill.dep{background:var(--red)} .type-pill.epa{background:var(--sav)}
   .imp-loading{padding:48px 20px;text-align:center;color:var(--muted);font-size:14px}
   .modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;border-top:1px solid var(--border)}
   .modal-foot .btn{flex:0 0 auto}
@@ -1331,11 +1331,22 @@ const CAT_RULES_REV=[
   [/int[ée]r[êe]t/i,"Investissement"],
   [/freelance|honoraire|facture\b|mission/i,"Freelance"]
 ];
-// Mots-clés pour déduire dépense vs revenu depuis un libellé de relevé
+const CAT_RULES_EPA=[
+  [/livret\s?a\b/i,"Livret A"],
+  [/\bldds\b|d[ée]veloppement\s?durable/i,"LDDS"],
+  [/\blep\b|livret\s?[ée]pargne\s?populaire/i,"LEP"],
+  [/\bpel\b|plan\s?[ée]pargne\s?logement/i,"PEL"],
+  [/\bcel\b|compte\s?[ée]pargne\s?logement/i,"CEL"],
+  [/\bpea\b/i,"PEA"],
+  [/\bcto\b|compte[\s-]?titre/i,"Compte titre (CTO)"],
+  [/assurance\s?vie/i,"Assurance vie"]
+];
+// Mots-clés pour déduire le type (épargne / dépense / revenu) depuis un libellé de relevé
+const EPA_KW=/livret\s?a\b|\bldds\b|\blep\b|\bpel\b|\bcel\b|\bpea\b|\bcto\b|assurance\s?vie|versement.{0,12}[ée]pargne/i;
 const DEP_KW=/pr[ée]l[èe]?v|\bprlv\b|paiement|\bpaieme|achat|\bcb\b|carte\s?banc|retrait|\bfrais\b|cotisation|commission|[ée]ch[ée]ance|facture|loyer|abonnement|virement\s?[ée]mis|vir\s?[ée]mis/i;
 const REV_KW=/salaire|r[ée]mun[ée]ration|virement\s?re[çc]u|vir\s?re[çc]u|virement\s?de\b|remboursement|\bremb\b|d[ée]p[ôo]t|allocation|\bcaf\b|p[ôo]le\s?emploi|\bapl\b|pension|retraite|dividende/i;
 function categorize(label,type){
-  const rules=type==='revenu'?CAT_RULES_REV:CAT_RULES;
+  const rules = type==='revenu' ? CAT_RULES_REV : (type==='epargne' ? CAT_RULES_EPA : CAT_RULES);
   for(const [re,cat] of rules){ if(re.test(label)) return cat; }
   return "Autre";
 }
@@ -1398,7 +1409,8 @@ function parseStatement(lines){
     // type : mots-clés prioritaires, puis signe, puis colonne, défaut dépense
     let type=null;
     const low=p.text.toLowerCase();
-    if(DEP_KW.test(low)) type="depense";
+    if(EPA_KW.test(low)) type="epargne";
+    else if(DEP_KW.test(low)) type="depense";
     else if(REV_KW.test(low)) type="revenu";
     if(!type && chosen.neg) type="depense";
     if(!type && chosenX!=null && centers.length>=2){ const col=nearestCol(chosenX); type = col===1?"revenu":(col===0?"depense":null); }
@@ -1430,7 +1442,8 @@ function updImpSummary(){
   const sel=importRows.filter(r=>r.include);
   const rev=sel.filter(r=>r.type==='revenu').reduce((s,r)=>s+r.amount,0);
   const dep=sel.filter(r=>r.type==='depense').reduce((s,r)=>s+r.amount,0);
-  $("impSummary").innerHTML=importRows.length+" opération(s) détectée(s) · "+sel.length+" sélectionnée(s) — Revenus "+fmt(rev)+" · Dépenses "+fmt(dep);
+  const epa=sel.filter(r=>r.type==='epargne').reduce((s,r)=>s+r.amount,0);
+  $("impSummary").innerHTML=importRows.length+" opération(s) détectée(s) · "+sel.length+" sélectionnée(s) — Revenus "+fmt(rev)+" · Dépenses "+fmt(dep)+" · Épargne "+fmt(epa);
 }
 
 function renderImportTable(){
@@ -1438,15 +1451,17 @@ function renderImportTable(){
   if(!importRows.length){ setImpMsg("Aucune opération détectée. Le format de ce relevé n'est peut-être pas reconnu."); return; }
   let body="";
   importRows.forEach((r,i)=>{
-    const opts=CATS[r.type==='revenu'?'revenu':'depense'].slice().sort(alphaCat)
+    const opts=(CATS[r.type]||CATS.depense).slice().sort(alphaCat)
       .map(c=>'<option value="'+c.name+'"'+(c.name===r.category?' selected':'')+'>'+c.ic+' '+c.name+'</option>').join("");
+    const tClass=r.type==='revenu'?'rev':(r.type==='epargne'?'epa':'dep');
+    const tLabel=r.type==='revenu'?'Revenu':(r.type==='epargne'?'Épargne':'Dépense');
     body+='<tr class="'+(r.include?'':'off')+'" data-i="'+i+'">'
       +'<td><input type="checkbox" class="imp-inc"'+(r.include?' checked':'')+'></td>'
       +'<td><input type="date" class="imp-date" value="'+r.date+'"></td>'
       +'<td><input type="text" class="imp-label" value="'+esc(r.label)+'"></td>'
       +'<td><select class="imp-cat">'+opts+'</select></td>'
       +'<td><input type="text" class="imp-sub" list="imp-sub-'+i+'" value="'+esc(r.subcategory||"")+'" placeholder="—"><datalist id="imp-sub-'+i+'">'+subOpts(r.category)+'</datalist></td>'
-      +'<td><button class="type-pill '+(r.type==='revenu'?'rev':'dep')+'">'+(r.type==='revenu'?'Revenu':'Dépense')+'</button></td>'
+      +'<td><button class="type-pill '+tClass+'" title="Cliquer pour changer de type">'+tLabel+'</button></td>'
       +'<td><input type="number" class="imp-amt" step="0.01" min="0" value="'+r.amount.toFixed(2)+'"></td>'
       +'</tr>';
   });
@@ -1459,7 +1474,7 @@ function renderImportTable(){
     tr.querySelector(".imp-cat").onchange=e=>{ r.category=e.target.value; const dl=tr.querySelector(".imp-sub").nextElementSibling; if(dl) dl.innerHTML=subOpts(r.category); };
     tr.querySelector(".imp-sub").onchange=e=>{ r.subcategory=e.target.value; };
     tr.querySelector(".imp-amt").onchange=e=>{ r.amount=parseFloat(e.target.value)||0; updImpSummary(); };
-    tr.querySelector(".type-pill").onclick=()=>{ r.type=r.type==='revenu'?'depense':'revenu'; r.category=categorize(r.label,r.type); renderImportTable(); };
+    tr.querySelector(".type-pill").onclick=()=>{ r.type = r.type==='depense'?'revenu':(r.type==='revenu'?'epargne':'depense'); r.category=categorize(r.label,r.type); renderImportTable(); };
   });
   $("impTools").style.display="flex";
   $("impConfirm").disabled=false;
@@ -1497,7 +1512,7 @@ $("impClose").onclick=closeImport;
 $("impCancel").onclick=closeImport;
 $("impConfirm").onclick=confirmImport;
 $("impAll").onchange=e=>{ importRows.forEach(r=>r.include=e.target.checked); renderImportTable(); };
-$("impInvert").onclick=()=>{ importRows.forEach(r=>{ r.type=r.type==='revenu'?'depense':'revenu'; r.category=categorize(r.label,r.type); }); renderImportTable(); };
+$("impInvert").onclick=()=>{ importRows.forEach(r=>{ if(r.type==='depense')r.type='revenu'; else if(r.type==='revenu')r.type='depense'; r.category=categorize(r.label,r.type); }); renderImportTable(); };
 $("importModal").onclick=e=>{ if(e.target===$("importModal")) closeImport(); };
 $("catClose").onclick=closeCatModal;
 $("catModal").onclick=e=>{ if(e.target===$("catModal")) closeCatModal(); };
