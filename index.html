@@ -174,6 +174,22 @@
   .modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;border-top:1px solid var(--border)}
   .modal-foot .btn{flex:0 0 auto}
   .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+  /* écran de connexion */
+  .auth-screen{position:fixed;inset:0;background:var(--page-bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:32px;width:100%;max-width:380px;text-align:center}
+  .auth-logo{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#7b5cff);display:grid;place-items:center;font-size:28px;margin:0 auto 14px;box-shadow:var(--shadow)}
+  .auth-card h1{font-size:22px;margin-bottom:4px}
+  .auth-sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .auth-card label{text-align:left;margin-top:12px}
+  .auth-card input{width:100%}
+  .auth-actions{display:flex;gap:10px;margin-top:20px}
+  .auth-actions .btn{flex:1}
+  .auth-err{border-radius:10px;padding:10px;font-size:13px;margin-bottom:8px;border:1px solid transparent}
+  .auth-note{color:var(--muted);font-size:12px;margin-top:14px;min-height:16px}
+  .user-box{display:flex;align-items:center;gap:8px}
+  .user-email{color:var(--text);font-size:12px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sync-badge{font-size:11px;color:var(--muted);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -194,6 +210,13 @@
       </div>
       <button id="pdfBtn" class="import-btn" title="Importer un relevé bancaire (PDF)">📄 <span>Importer un relevé</span></button>
       <button id="themeBtn" class="theme-btn" title="Changer de thème">🌙</button>
+      <div class="user-box" id="userBox" style="display:none">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2">
+          <span class="user-email" id="userEmail"></span>
+          <span class="sync-badge" id="syncBadge"></span>
+        </div>
+        <button id="logoutBtn" class="theme-btn" title="Se déconnecter">⎋</button>
+      </div>
     </div>
   </header>
 
@@ -402,6 +425,26 @@
   </div>
 </div>
 
+<!-- ===== ÉCRAN DE CONNEXION ===== -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">💰</div>
+    <h1>Mon Budget</h1>
+    <p class="auth-sub">Connecte-toi pour accéder à tes données</p>
+    <div class="auth-err" id="authErr" style="display:none"></div>
+    <label>E-mail</label>
+    <input type="email" id="authEmail" placeholder="ton@email.com" autocomplete="username">
+    <label>Mot de passe</label>
+    <input type="password" id="authPw" placeholder="••••••••" autocomplete="current-password">
+    <div class="auth-actions">
+      <button class="btn" id="loginBtn">Se connecter</button>
+      <button class="btn ghost" id="signupBtn">Créer un compte</button>
+    </div>
+    <div class="auth-note" id="authNote"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const CATS = {
   depense:[
@@ -449,10 +492,24 @@ const SUBCATS = {
 };
 const MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const KEY="monbudget_tx_v1";
-let state={ txs: load(), type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:12 };
+// ===== Supabase : authentification + synchronisation cloud =====
+const SUPABASE_URL="https://aobzfdktaeuyjqqpurzy.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvYnpmZGt0YWV1eWpxcXB1cnp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzEwNzQsImV4cCI6MjA5NTMwNzA3NH0.gzkafwye_0aSR-O7Xs_-QsjQwqM4gv9VOdHpDjr4xaA";
+let sb=null, currentUser=null, remoteTimer=null;
 
-function load(){ try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]} }
-function save(){ localStorage.setItem(KEY,JSON.stringify(state.txs)) }
+let state={ txs: [], type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:12 };
+
+function cacheKey(){ return currentUser ? KEY+"_"+currentUser.id : KEY; }
+function loadCache(uid){ try{ return JSON.parse(localStorage.getItem(KEY+"_"+uid)); }catch(e){ return null; } }
+function saveCacheOnly(){ try{ localStorage.setItem(cacheKey(), JSON.stringify(state.txs)); }catch(e){} }
+function save(){ saveCacheOnly(); scheduleRemoteSave(); }
+function scheduleRemoteSave(){ if(!sb||!currentUser) return; setSyncState("sync"); clearTimeout(remoteTimer); remoteTimer=setTimeout(remoteSave,800); }
+async function remoteSave(){
+  if(!sb||!currentUser) return;
+  const { error } = await sb.from('budgets').upsert({ user_id:currentUser.id, data:state.txs, updated_at:new Date().toISOString() });
+  setSyncState(error?"err":"ok");
+  if(error) console.error("Sync error:", error.message);
+}
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7) }
 function fmt(n){ return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n) }
 function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0') }
@@ -1223,9 +1280,92 @@ $("themeBtn").onclick=()=>{
 };
 initTheme();
 
+// ===== Authentification & synchronisation =====
+function initSupabase(){
+  if(!SUPABASE_URL || SUPABASE_URL.indexOf("__")===0) return false;
+  if(!window.supabase) return false;
+  sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+function showAuth(){ $("authScreen").style.display="flex"; $("userBox").style.display="none"; }
+function hideAuth(){ $("authScreen").style.display="none"; $("userBox").style.display="flex"; }
+function authClearErr(){ $("authErr").style.display="none"; }
+function authErr(msg, ok){ const e=$("authErr"); e.textContent=msg; e.style.display="block";
+  e.style.background = ok?"rgba(46,204,113,.12)":"rgba(255,92,108,.12)";
+  e.style.color = ok?"var(--green)":"var(--red)";
+  e.style.borderColor = ok?"rgba(46,204,113,.3)":"rgba(255,92,108,.3)"; }
+function authNote(msg){ $("authNote").textContent=msg||""; }
+function authBusy(b){ $("loginBtn").disabled=b; $("signupBtn").disabled=b; $("loginBtn").textContent=b?"…":"Se connecter"; }
+function setSyncState(s){ const b=$("syncBadge"); if(!b) return;
+  b.textContent = s==="sync"?"⏳ synchro…":s==="ok"?"☁️ synchronisé":s==="err"?"⚠️ hors-ligne":""; }
+function traduitAuth(m){
+  if(/invalid login credentials/i.test(m)) return "Identifiants incorrects.";
+  if(/already registered/i.test(m)) return "Un compte existe déjà avec cet e-mail.";
+  if(/email not confirmed/i.test(m)) return "E-mail non confirmé — vérifie ta boîte mail.";
+  if(/password should be at least/i.test(m)) return "Mot de passe trop court (min. 6 caractères).";
+  if(/unable to validate email/i.test(m)) return "E-mail invalide.";
+  return m;
+}
+async function onLogin(user){
+  currentUser=user; authClearErr(); hideAuth();
+  $("userEmail").textContent=user.email||"";
+  let cache=loadCache(user.id);
+  if(!cache){ try{ const legacy=JSON.parse(localStorage.getItem(KEY)); if(Array.isArray(legacy)&&legacy.length) cache=legacy; }catch(e){} }
+  state.txs = Array.isArray(cache)?cache:[];
+  render();
+  setSyncState("sync");
+  const { data, error } = await sb.from('budgets').select('data').eq('user_id',user.id).maybeSingle();
+  if(error){ console.error(error.message); setSyncState("err"); return; }
+  if(data && Array.isArray(data.data)){ state.txs=data.data; saveCacheOnly(); render(); setSyncState("ok"); }
+  else { await sb.from('budgets').upsert({ user_id:user.id, data:state.txs, updated_at:new Date().toISOString() }); setSyncState("ok"); }
+}
+function onLogout(){ currentUser=null; state.txs=[]; render(); showAuth(); authClearErr(); authNote(""); $("authEmail").value=""; $("authPw").value=""; }
+async function doLogin(){
+  authClearErr();
+  const email=$("authEmail").value.trim(), pw=$("authPw").value;
+  if(!email||!pw){ authErr("Renseigne l'e-mail et le mot de passe."); return; }
+  authBusy(true);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password:pw });
+  authBusy(false);
+  if(error){ authErr(traduitAuth(error.message)); return; }
+  await onLogin(data.user);
+}
+async function doSignup(){
+  authClearErr();
+  const email=$("authEmail").value.trim(), pw=$("authPw").value;
+  if(!email){ authErr("Renseigne un e-mail valide."); return; }
+  if(pw.length<6){ authErr("Le mot de passe doit faire au moins 6 caractères."); return; }
+  authBusy(true);
+  const { data, error } = await sb.auth.signUp({ email, password:pw });
+  authBusy(false);
+  if(error){ authErr(traduitAuth(error.message)); return; }
+  if(data.session && data.user){ await onLogin(data.user); }
+  else { authErr("Compte créé ✅ Vérifie ta boîte mail pour confirmer, puis connecte-toi.", true); }
+}
+async function boot(){
+  if(!initSupabase()){
+    showAuth();
+    authNote("⚠️ Configuration Supabase manquante (URL / clé) — l'app n'est pas encore reliée.");
+    $("loginBtn").disabled=true; $("signupBtn").disabled=true;
+    return;
+  }
+  $("loginBtn").onclick=doLogin;
+  $("signupBtn").onclick=doSignup;
+  $("logoutBtn").onclick=()=>sb.auth.signOut();
+  $("authPw").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
+  $("authEmail").addEventListener("keydown",e=>{ if(e.key==="Enter") $("authPw").focus(); });
+  sb.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_OUT') onLogout(); });
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(session && session.user) await onLogin(session.user);
+    else showAuth();
+  }catch(e){ console.error(e); showAuth(); }
+}
+
 // init
 switchTab("dep");
 render();
+boot();
 </script>
 </body>
 </html>
