@@ -95,6 +95,10 @@
   .radio-pill input{width:auto;accent-color:var(--accent)}
   .radio-pill.sel{border-color:var(--accent);color:var(--text);background:rgba(79,140,255,.1)}
 
+  .tx-filter{display:flex;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px}
+  .tx-filter button{flex:1;background:transparent;border:none;color:var(--muted);padding:8px 6px;border-radius:7px;cursor:pointer;font-weight:600;font-size:12.5px;transition:.15s;white-space:nowrap}
+  .tx-filter button:hover{color:var(--text)}
+  .tx-filter button.active{background:var(--accent);color:#fff}
   .tx-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto;padding-right:4px}
   .tx{display:flex;align-items:center;gap:12px;background:var(--surface-2);border:1px solid var(--border);
     border-radius:11px;padding:11px 14px;transition:.15s}
@@ -328,6 +332,11 @@
 
       <div class="panel">
         <h2>Dépenses du mois <span class="hint" id="txCountDep"></span></h2>
+        <div class="tx-filter" id="depFilter">
+          <button data-f="all" class="active">Toutes</button>
+          <button data-f="once">Ponctuelles</button>
+          <button data-f="recurring">🔁 Récurrentes</button>
+        </div>
         <div class="tx-list" id="txListDep"></div>
       </div>
     </div>
@@ -500,7 +509,7 @@ const SUPABASE_URL="https://htilkeibdzzvjxvqpjmz.supabase.co";
 const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0aWxrZWliZHp6dmp4dnFwam16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5NjQwNzIsImV4cCI6MjA5ODU0MDA3Mn0.iVyG9vZhGXYhGMhHOTrnzGzreHZFTrnf3FLcTEv2E8o";
 let sb=null, currentUser=null, remoteTimer=null;
 
-let state={ txs: [], type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:12 };
+let state={ txs: [], type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:12, depFilter:"all" };
 
 function cacheKey(){ return currentUser ? KEY+"_"+currentUser.id : KEY; }
 function loadCache(uid){ try{ return JSON.parse(localStorage.getItem(KEY+"_"+uid)); }catch(e){ return null; } }
@@ -629,6 +638,13 @@ document.querySelectorAll('input[name="freq"]').forEach(r=>r.onchange=syncFreqUI
 
 $("prevM").onclick=()=>{ state.cursor.setMonth(state.cursor.getMonth()-1); render() };
 $("nextM").onclick=()=>{ state.cursor.setMonth(state.cursor.getMonth()+1); render() };
+
+// filtre dépenses : toutes / ponctuelles / récurrentes
+$("depFilter").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  state.depFilter=b.dataset.f;
+  $("depFilter").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+  render();
+});
 
 // sélecteur de plage des graphiques (12 / 24 / 36 mois)
 $("rangeSel").querySelectorAll("button").forEach(b=>b.onclick=()=>{
@@ -822,7 +838,9 @@ function render(){
   const solde=rev-dep, sEl=$("solde");
   sEl.textContent=fmt(solde);
   sEl.className="val "+(solde>=0?"pos":"neg");
-  const depTxs=txs.filter(t=>t.type==='depense');
+  let depTxs=txs.filter(t=>t.type==='depense');
+  if(state.depFilter==='once') depTxs=depTxs.filter(t=>!t.recurring);
+  else if(state.depFilter==='recurring') depTxs=depTxs.filter(t=>t.recurring);
   const revTxs=txs.filter(t=>t.type==='revenu');
   renderTxList($("txListDep"),depTxs,"dépense");
   renderTxList($("txListRev"),revTxs,"revenu");
