@@ -8,14 +8,14 @@
   :root{
     --bg:#0f1419; --surface:#1a2230; --surface-2:#232d3f; --border:#2c3850;
     --text:#e6edf3; --muted:#8b98a9; --accent:#4f8cff; --accent-2:#3a6fd8;
-    --green:#2ecc71; --red:#ff5c6c; --amber:#f5b945; --radius:14px;
+    --green:#2ecc71; --red:#ff5c6c; --amber:#f5b945; --sav:#16c79a; --radius:14px;
     --shadow:0 8px 24px rgba(0,0,0,.35);
     --page-bg:linear-gradient(160deg,#0b0f16,#0f1419 40%,#121a26);
   }
   html[data-theme="light"]{
     --bg:#f4f6fb; --surface:#ffffff; --surface-2:#eef1f7; --border:#dde3ee;
     --text:#1c2433; --muted:#6b7689; --accent:#3a6fd8; --accent-2:#2f5cc0;
-    --green:#1ca85a; --red:#e23b4e; --amber:#d99a16;
+    --green:#1ca85a; --red:#e23b4e; --amber:#d99a16; --sav:#12a884;
     --shadow:0 6px 18px rgba(60,80,120,.12);
     --page-bg:linear-gradient(160deg,#eef2fa,#f4f6fb 40%,#e9eef9);
   }
@@ -59,7 +59,7 @@
   .card .lbl{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
   .card .val{font-size:28px;font-weight:700;letter-spacing:-.5px}
   .dot{width:10px;height:10px;border-radius:50%}
-  .pos{color:var(--green)} .neg{color:var(--red)}
+  .pos{color:var(--green)} .neg{color:var(--red)} .sav{color:var(--sav)}
 
   .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:20px}
   @media(max-width:860px){.grid{grid-template-columns:1fr}}
@@ -243,7 +243,11 @@
       <div class="val neg" id="totalDep">0 €</div>
     </div>
     <div class="card">
-      <div class="lbl"><span class="dot" style="background:var(--accent)"></span>Solde du mois</div>
+      <div class="lbl"><span class="dot" style="background:var(--sav)"></span>Épargne</div>
+      <div class="val sav" id="totalEpa">0 €</div>
+    </div>
+    <div class="card">
+      <div class="lbl"><span class="dot" style="background:var(--accent)"></span>Solde du mois <span style="color:var(--muted);font-weight:400">(après épargne)</span></div>
       <div class="val" id="solde">0 €</div>
     </div>
   </section>
@@ -251,6 +255,7 @@
   <div class="tabs">
     <button class="tab active" data-tab="dep">💸 Dépenses</button>
     <button class="tab" data-tab="rev">💰 Revenus</button>
+    <button class="tab" data-tab="epa">🏦 Épargne</button>
     <button class="tab" data-tab="charts">📊 Graphiques</button>
   </div>
 
@@ -386,6 +391,27 @@
   </div>
   </div><!-- /pane-rev -->
 
+  <!-- ===== ONGLET ÉPARGNE ===== -->
+  <div class="tabpane" id="pane-epa" style="display:none">
+  <div class="grid">
+    <div>
+      <div id="slot-epa"></div>
+      <div class="panel">
+        <h2>Épargne du mois <span class="hint" id="txCountEpa"></span></h2>
+        <input type="search" class="tx-search" id="searchEpa" placeholder="🔍 Rechercher (support, libellé, montant…)">
+        <div class="tx-list" id="txListEpa"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>Épargne par support <span class="hint" id="epaHint"></span></h2>
+        <div class="donut-wrap" id="donutWrapEpa"></div>
+        <div class="bars" id="catBarsEpa"></div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /pane-epa -->
+
   <!-- ===== ONGLET GRAPHIQUES ===== -->
   <div class="tabpane" id="pane-charts" style="display:none">
   <div class="panel">
@@ -401,7 +427,8 @@
     <div class="chart-legend">
       <div class="li"><span class="sw" style="background:var(--green)"></span>Revenus</div>
       <div class="li"><span class="sw" style="background:var(--red)"></span>Dépenses</div>
-      <div class="li"><span class="sw line" style="background:var(--accent)"></span>Solde du mois</div>
+      <div class="li"><span class="sw" style="background:var(--sav)"></span>Épargne</div>
+      <div class="li"><span class="sw line" style="background:var(--accent)"></span>Solde (après épargne)</div>
     </div>
   </div>
 
@@ -514,7 +541,6 @@ const CATS = {
     {name:"Shopping",ic:"🛍️",color:"#39d0d8"},
     {name:"Restaurant",ic:"🍽️",color:"#ff9f43"},
     {name:"Éducation",ic:"📚",color:"#5c7cff"},
-    {name:"Épargne",ic:"🏦",color:"#16c79a"},
     {name:"Assurances",ic:"🛡️",color:"#e07a5f"},
     {name:"Banque",ic:"💳",color:"#5c6bc0"},
     {name:"Autre",ic:"📦",color:"#8b98a9"}
@@ -527,6 +553,17 @@ const CATS = {
     {name:"Dividendes",ic:"🪙",color:"#ffd24a"},
     {name:"Remboursement",ic:"↩️",color:"#f5b945"},
     {name:"Autre",ic:"💵",color:"#8b98a9"}
+  ],
+  epargne:[
+    {name:"Livret A",ic:"🏦",color:"#16c79a"},
+    {name:"LDDS",ic:"💚",color:"#2ecc71"},
+    {name:"LEP",ic:"🪙",color:"#ffd24a"},
+    {name:"PEL",ic:"🏠",color:"#4f8cff"},
+    {name:"CEL",ic:"🏡",color:"#39d0d8"},
+    {name:"PEA",ic:"📈",color:"#b06cff"},
+    {name:"Compte titre (CTO)",ic:"📊",color:"#5c7cff"},
+    {name:"Assurance vie",ic:"🛡️",color:"#e07a5f"},
+    {name:"Autre",ic:"📦",color:"#8b98a9"}
   ]
 };
 const SUBCATS = {
@@ -540,7 +577,6 @@ const SUBCATS = {
   "Shopping":["Vêtements","Chaussures","Électronique","Maison","Cadeaux","Beauté"],
   "Restaurant":["Restaurant","Fast-food","Café","Livraison"],
   "Éducation":["Frais de scolarité","Livres","Formations","Fournitures","Garde / Crèche"],
-  "Épargne":["Plan Epargne Logement (PEL)","Plan d'épargne en actions (PEA)","Compte Epargne Logement (CEL)","Livret de Développement Durable et Solidaire (LDDS)","Compte Epargne Logement","Livret A","Compte titre (CTO)","Autre"],
   "Assurances":["Assurance habitation","Assurance auto","Assurance santé / Mutuelle","Assurance vie","Assurance emprunteur","Responsabilité civile","Assurance scolaire","Assurance animaux","Prévoyance","Autre"],
   "Banque":["Frais bancaire"],
   "Salaire":["Salaire net","Heures supplémentaires","13e mois","Acompte"],
@@ -647,19 +683,20 @@ $("resetOvBtn").onclick=()=>{
 };
 
 // ---- Onglets ----
-function tabType(tab){ return tab==='rev'?'revenu':'depense'; }
+function tabType(tab){ return tab==='rev'?'revenu':(tab==='epa'?'epargne':'depense'); }
+function typeTab(ty){ return ty==='revenu'?'rev':(ty==='epargne'?'epa':'dep'); }
 function updateFormTitle(){
   if(state.editId) return;
-  const rev=state.type==='revenu';
-  $("formTitle").textContent = rev ? "Ajouter un revenu" : "Ajouter une dépense";
-  $("submitBtn").textContent = rev ? "+ Ajouter le revenu" : "+ Ajouter la dépense";
+  const t=state.type;
+  $("formTitle").textContent = t==='revenu' ? "Ajouter un revenu" : (t==='epargne' ? "Ajouter une épargne" : "Ajouter une dépense");
+  $("submitBtn").textContent = t==='revenu' ? "+ Ajouter le revenu" : (t==='epargne' ? "+ Ajouter l'épargne" : "+ Ajouter la dépense");
 }
 function switchTab(tab){
   state.tab=tab;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.querySelectorAll('.tabpane').forEach(p=>p.style.display='none');
   $("pane-"+tab).style.display='block';
-  if(tab==='dep'||tab==='rev'){
+  if(tab==='dep'||tab==='rev'||tab==='epa'){
     $("slot-"+tab).appendChild($("formPanel"));
     if(!state.editId){ setType(tabType(tab)); resetForm(); updateFormTitle(); }
   }
@@ -696,6 +733,7 @@ $("depFilter").querySelectorAll("button").forEach(b=>b.onclick=()=>{
 // recherche
 $("searchDep").oninput=()=>render();
 $("searchRev").oninput=()=>render();
+$("searchEpa").oninput=()=>render();
 
 // sélecteur de plage des graphiques (12 / 24 / 36 mois)
 $("rangeSel").querySelectorAll("button").forEach(b=>b.onclick=()=>{
@@ -771,7 +809,7 @@ function resetForm(){
 
 function startEdit(id, monthK){
   const t=state.txs.find(x=>x.id===id); if(!t) return;
-  switchTab(t.type==='revenu'?'rev':'dep');
+  switchTab(typeTab(t.type));
   state.editId=id;
   state.editMonth=monthK||monthKey(state.cursor);
   state.editScope='series';
@@ -827,7 +865,7 @@ $("cancelBtn").onclick=()=>{ exitEdit(); resetForm(); render(); };
 function duplicateTx(id){
   const t=state.txs.find(x=>x.id===id); if(!t) return;
   if(state.editId) exitEdit();
-  switchTab(t.type==='revenu'?'rev':'dep');
+  switchTab(typeTab(t.type));
   setType(t.type);
   fillCats(t.category);
   $("label").value=t.label;
@@ -892,7 +930,7 @@ function renderTxList(container,list,kind){
         <div class="t">${esc(t.label)}</div>
         <div class="d"><span class="tx-badge ${t.recurring?'rec':'once'}">${t.recurring?'🔁 Récurrente':'📌 Ponctuelle'}</span> ${t.category}${t.subcategory?' › '+esc(t.subcategory):''} · ${new Date(t.dateDisp).toLocaleDateString('fr-FR')}${recInfo}</div>
       </div>
-      <div class="amt ${t.type==='revenu'?'pos':'neg'}">${t.type==='revenu'?'+':'−'}${fmt(t.amount).replace('-','')}</div>
+      <div class="amt ${t.type==='revenu'?'pos':(t.type==='epargne'?'sav':'neg')}">${t.type==='revenu'?'+':(t.type==='epargne'?'':'−')}${fmt(t.amount).replace('-','')}</div>
       <div class="acts">
         <button class="dup" title="Dupliquer">⧉</button>
         <button class="edit" title="Modifier">✎</button>
@@ -914,9 +952,11 @@ function render(){
   const txs=monthTxs();
   const rev=txs.filter(t=>t.type==="revenu").reduce((s,t)=>s+t.amount,0);
   const dep=txs.filter(t=>t.type==="depense").reduce((s,t)=>s+t.amount,0);
+  const epa=txs.filter(t=>t.type==="epargne").reduce((s,t)=>s+t.amount,0);
   $("totalRev").textContent=fmt(rev);
   $("totalDep").textContent=fmt(dep);
-  const solde=rev-dep, sEl=$("solde");
+  $("totalEpa").textContent=fmt(epa);
+  const solde=rev-dep-epa, sEl=$("solde");
   sEl.textContent=fmt(solde);
   sEl.className="val "+(solde>=0?"pos":"neg");
   let depTxs=txs.filter(t=>t.type==='depense');
@@ -925,10 +965,14 @@ function render(){
   const qd=$("searchDep").value; if(qd) depTxs=depTxs.filter(t=>matchSearch(t,qd));
   let revTxs=txs.filter(t=>t.type==='revenu');
   const qr=$("searchRev").value; if(qr) revTxs=revTxs.filter(t=>matchSearch(t,qr));
+  let epaTxs=txs.filter(t=>t.type==='epargne');
+  const qe=$("searchEpa").value; if(qe) epaTxs=epaTxs.filter(t=>matchSearch(t,qe));
   renderTxList($("txListDep"),depTxs,"dépense");
   renderTxList($("txListRev"),revTxs,"revenu");
+  renderTxList($("txListEpa"),epaTxs,"épargne");
   $("txCountDep").textContent=depTxs.length?depTxs.length+" opération"+(depTxs.length>1?"s":""):"";
   $("txCountRev").textContent=revTxs.length?revTxs.length+" opération"+(revTxs.length>1?"s":""):"";
+  $("txCountEpa").textContent=epaTxs.length?epaTxs.length+" opération"+(epaTxs.length>1?"s":""):"";
 
   // Dépenses
   const depEntries=catEntries(txs,"depense");
@@ -943,6 +987,13 @@ function render(){
   renderDonut($("donutWrapRev"),revEntries,rev,"revenu");
   if(!revEntries.length){ $("catBarsRev").innerHTML='<div class="empty">Pas encore de revenus.</div>'; }
   else renderBars($("catBarsRev"),revEntries,rev,"revenu");
+
+  // Épargne
+  const epaEntries=catEntries(txs,"epargne");
+  $("epaHint").textContent=epa?fmt(epa):"";
+  renderDonut($("donutWrapEpa"),epaEntries,epa,"epargne");
+  if(!epaEntries.length){ $("catBarsEpa").innerHTML='<div class="empty">Pas encore d\'épargne.</div>'; }
+  else renderBars($("catBarsEpa"),epaEntries,epa,"epargne");
 
   renderCharts();
 }
@@ -1019,7 +1070,7 @@ function showCatDetail(type, cat){
         <div class="t">${esc(t.label)}</div>
         <div class="d">${badge}${sub}${new Date(t.dateDisp).toLocaleDateString('fr-FR')}${t.overridden?' · <span style="color:var(--amber)">✏️ ajusté</span>':''}</div>
       </div>
-      <div class="amt ${type==='revenu'?'pos':'neg'}">${type==='revenu'?'+':'−'}${fmt(t.amount).replace('-','')}</div>
+      <div class="amt ${type==='revenu'?'pos':(type==='epargne'?'sav':'neg')}">${type==='revenu'?'+':(type==='epargne'?'':'−')}${fmt(t.amount).replace('-','')}</div>
     </div>`;
   });
   html+='</div>';
@@ -1068,9 +1119,9 @@ function occurrencesUpTo(t,key){
 }
 
 function periodTotals(key){
-  let rev=0,dep=0;
-  state.txs.forEach(t=>{ if(occursIn(t,key)){ const a=effAmount(t,key); if(t.type==='revenu') rev+=a; else dep+=a; } });
-  return {rev,dep,solde:rev-dep};
+  let rev=0,dep=0,epa=0;
+  state.txs.forEach(t=>{ if(occursIn(t,key)){ const a=effAmount(t,key); if(t.type==='revenu') rev+=a; else if(t.type==='epargne') epa+=a; else dep+=a; } });
+  return {rev,dep,epa,solde:rev-dep-epa};
 }
 function cumulativeAt(key){
   let total=0;
@@ -1100,7 +1151,7 @@ function renderCharts(){
   // --- Histogramme combiné ---
   const W=760,H=300,L=54,R=14,T=16,B=40;
   const pW=W-L-R, pH=H-T-B, n=data.length, gW=pW/n;
-  let yMax=Math.max(0,...data.map(d=>Math.max(d.rev,d.dep,d.solde)));
+  let yMax=Math.max(0,...data.map(d=>Math.max(d.rev,d.dep,d.epa,d.solde)));
   let yMin=Math.min(0,...data.map(d=>d.solde));
   if(yMax===yMin) yMax=yMin+1;
   const range=yMax-yMin, yOf=v=>T+(yMax-v)/range*pH, zeroY=yOf(0);
@@ -1108,14 +1159,15 @@ function renderCharts(){
   for(let i=0;i<=4;i++){ const v=yMin+range*i/4, y=yOf(v);
     gl+=`<line class="gridline" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/>`;
     axis+=`<text class="axis" x="${L-7}" y="${y+3}" text-anchor="end">${fmtShort(v)}</text>`; }
-  const barW=gW*0.26;
+  const barW=gW*0.2, gap=1.5, grpW=3*barW+2*gap;
   const bandX=L+gW*centerIdx, markerX=bandX+gW/2;
   const marker=`<rect x="${bandX}" y="${T}" width="${gW}" height="${pH}" fill="var(--accent)" opacity="0.08"/><line x1="${markerX}" y1="${T}" x2="${markerX}" y2="${H-B}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`;
   let bars="",line="",dots="",labels="";
   data.forEach((d,i)=>{
-    const gx=L+gW*i+gW/2;
-    bars+=`<rect x="${gx-barW-1.5}" y="${yOf(d.rev)}" width="${barW}" height="${Math.max(zeroY-yOf(d.rev),0)}" rx="2" fill="var(--green)"><title>${monthShort(d.k)} — Revenus : ${fmt(d.rev)}</title></rect>`;
-    bars+=`<rect x="${gx+1.5}" y="${yOf(d.dep)}" width="${barW}" height="${Math.max(zeroY-yOf(d.dep),0)}" rx="2" fill="var(--red)"><title>${monthShort(d.k)} — Dépenses : ${fmt(d.dep)}</title></rect>`;
+    const gx=L+gW*i+gW/2, x0=gx-grpW/2;
+    bars+=`<rect x="${x0}" y="${yOf(d.rev)}" width="${barW}" height="${Math.max(zeroY-yOf(d.rev),0)}" rx="2" fill="var(--green)"><title>${monthShort(d.k)} — Revenus : ${fmt(d.rev)}</title></rect>`;
+    bars+=`<rect x="${x0+barW+gap}" y="${yOf(d.dep)}" width="${barW}" height="${Math.max(zeroY-yOf(d.dep),0)}" rx="2" fill="var(--red)"><title>${monthShort(d.k)} — Dépenses : ${fmt(d.dep)}</title></rect>`;
+    bars+=`<rect x="${x0+2*(barW+gap)}" y="${yOf(d.epa)}" width="${barW}" height="${Math.max(zeroY-yOf(d.epa),0)}" rx="2" fill="var(--sav)"><title>${monthShort(d.k)} — Épargne : ${fmt(d.epa)}</title></rect>`;
     const sy=yOf(d.solde);
     line+=(i?'L':'M')+gx+","+sy+" ";
     dots+=`<circle cx="${gx}" cy="${sy}" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"><title>${monthShort(d.k)} — Solde : ${fmt(d.solde)}</title></circle>`;
@@ -1238,7 +1290,6 @@ const CAT_RULES=[
   [/amazon|fnac|darty|\bzara\b|h\s?&\s?m|uniqlo|kiabi|decathlon|\bikea\b|leroy\s?merlin|castorama|\bbut\b|conforama|cdiscount|zalando|aliexpress|shein|action\b|gifi/i,"Shopping"],
   [/netflix|spotify|deezer|disney|canal\+?|cin[ée]ma|\bugc\b|path[ée]|gaumont|concert|fitness|basic\s?fit|salle\s?de\s?sport|steam|playstation|nintendo|xbox|twitch/i,"Loisirs"],
   [/scolarit|universit|\b[ée]cole\b|cr[èe]che|formation|udemy|librairie|fournitures/i,"Éducation"],
-  [/livret\s?a\b|\bldds\b|\blep\b|\bpel\b|\bcel\b|\bpea\b|assurance\s?vie|versement.{0,12}[ée]pargne|[ée]pargne|\bcto\b/i,"Épargne"],
   [/maif|macif|maaf|\bgmf\b|matmut|\baxa\b|allianz|groupama|generali|\bmma\b|april\b|swiss\s?life|direct\s?assurance|assurance/i,"Assurances"],
   [/frais\s?bancaire|cotisation\s?carte|commission\s?d.?interv|agios|frais\s?de\s?tenue|tenue\s?de\s?compte|frais\s?carte|quittance\s?bancaire/i,"Banque"]
 ];
