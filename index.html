@@ -566,7 +566,7 @@ const CATS = {
     {name:"Livret A",ic:"🏦",color:"#16c79a"},
     {name:"LDDS",ic:"💚",color:"#2ecc71"},
     {name:"LEP",ic:"🪙",color:"#ffd24a"},
-    {name:"PEL",ic:"🏠",color:"#4f8cff"},
+    {name:"PEL",ic:"🏠",color:"#e8579e"},
     {name:"CEL",ic:"🏡",color:"#39d0d8"},
     {name:"PEA",ic:"📈",color:"#b06cff"},
     {name:"Compte titre (CTO)",ic:"📊",color:"#5c7cff"},
@@ -1054,7 +1054,7 @@ function renderDonut(wrap,entries,total,type){
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${sw}"/>
         ${segs}
       </svg>
-      <div class="center"><div class="c-val">${fmt(total)}</div><div class="c-lbl">Total ${type==='revenu'?'revenus':'dépenses'}</div></div>
+      <div class="center"><div class="c-val">${fmt(total)}</div><div class="c-lbl">Total ${type==='revenu'?'revenus':(type==='epargne'?'épargne':'dépenses')}</div></div>
     </div>
     <div class="legend">${legend}</div>`;
 }
