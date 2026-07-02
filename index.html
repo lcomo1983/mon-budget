@@ -115,7 +115,7 @@
   .tx .amt{font-weight:700;font-size:15px;white-space:nowrap}
   .tx .acts{display:flex;gap:2px}
   .tx .acts button{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px 7px;border-radius:6px;transition:.15s}
-  .tx .acts .edit:hover{color:var(--accent);background:rgba(79,140,255,.12)}
+  .tx .acts .edit:hover,.tx .acts .dup:hover{color:var(--accent);background:rgba(79,140,255,.12)}
   .tx .acts .del:hover{color:var(--red);background:rgba(255,92,108,.1)}
   .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px}
 
@@ -794,6 +794,27 @@ function exitEdit(){
 }
 $("cancelBtn").onclick=()=>{ exitEdit(); resetForm(); render(); };
 
+// Dupliquer : pré-remplir le formulaire (nouvelle opération ponctuelle, date du jour)
+function duplicateTx(id){
+  const t=state.txs.find(x=>x.id===id); if(!t) return;
+  if(state.editId) exitEdit();
+  switchTab(t.type==='revenu'?'rev':'dep');
+  setType(t.type);
+  fillCats(t.category);
+  $("label").value=t.label;
+  $("amount").value=effAmount(t, monthKey(state.cursor));
+  $("category").value=t.category;
+  fillSubcats();
+  $("subcategory").value=t.subcategory||"";
+  document.querySelector('input[name="freq"][value="once"]').checked=true;
+  $("date").value=ymd(new Date());
+  syncFreqUI();
+  updateFormTitle();
+  render();
+  $("formPanel").scrollIntoView({behavior:"smooth",block:"start"});
+  $("label").focus();
+}
+
 function delTx(id){
   const t=state.txs.find(x=>x.id===id); if(!t) return;
   const msg=t.recurring ? "Cette opération est récurrente. Supprimer toute la série ?" : "Supprimer cette opération ?";
@@ -844,9 +865,11 @@ function renderTxList(container,list,kind){
       </div>
       <div class="amt ${t.type==='revenu'?'pos':'neg'}">${t.type==='revenu'?'+':'−'}${fmt(t.amount).replace('-','')}</div>
       <div class="acts">
+        <button class="dup" title="Dupliquer">⧉</button>
         <button class="edit" title="Modifier">✎</button>
         <button class="del" title="Supprimer">×</button>
       </div>`;
+    div.querySelector(".dup").onclick=()=>duplicateTx(t.id);
     div.querySelector(".edit").onclick=()=>startEdit(t.id, monthKey(state.cursor));
     div.querySelector(".del").onclick=()=>delTx(t.id);
     container.appendChild(div);
