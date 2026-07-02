@@ -126,7 +126,9 @@
   .donut .center .c-val{font-size:19px;font-weight:700;letter-spacing:-.3px}
   .donut .center .c-lbl{font-size:11px;color:var(--muted)}
   .legend{display:flex;flex-direction:column;gap:7px;font-size:12.5px;min-width:0}
-  .legend .li{display:flex;align-items:center;gap:8px;white-space:nowrap}
+  .legend .li{display:flex;align-items:center;gap:8px;white-space:nowrap;border-radius:6px;padding:2px 5px;transition:.15s}
+  .legend .li:hover{background:var(--surface-2)}
+  .bar-row:hover .bar-head .cat{color:var(--accent)}
   .legend .sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
   .legend .li .ln{overflow:hidden;text-overflow:ellipsis}
   .legend .li .lp{color:var(--muted);margin-left:auto;padding-left:8px}
@@ -434,6 +436,18 @@
       <button class="btn ghost" id="impCancel">Annuler</button>
       <button class="btn" id="impConfirm" disabled>Ajouter les opérations</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== MODAL DÉTAIL CATÉGORIE ===== -->
+<div class="modal-ov" id="catModal" style="display:none">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h2 id="catModalTitle">Détail</h2>
+      <button class="theme-btn" id="catClose" title="Fermer">×</button>
+    </div>
+    <div class="modal-sub" id="catModalSub"></div>
+    <div class="imp-table-wrap" id="catModalBody" style="padding:14px 20px 20px"></div>
   </div>
 </div>
 
@@ -877,13 +891,13 @@ function renderDonut(wrap,entries,total,type){
     const gap=0.6; // petit espace entre parts
     segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ci.color}" stroke-width="${sw}"
       stroke-dasharray="${Math.max(len-gap,0)} ${C-Math.max(len-gap,0)}" stroke-dashoffset="${-off}"
-      transform="rotate(-90 ${cx} ${cy})"><title>${cat} : ${fmt(val)}</title></circle>`;
+      transform="rotate(-90 ${cx} ${cy})" style="cursor:pointer" onclick="showCatDetail('${type}','${cat}')"><title>${cat} : ${fmt(val)} — cliquer pour le détail</title></circle>`;
     off+=len;
   });
   const legend=entries.map(([cat,val])=>{
     const ci=catInfo(type,cat);
     const pct=Math.round(val/total*100);
-    return `<div class="li"><span class="sw" style="background:${ci.color}"></span>
+    return `<div class="li" style="cursor:pointer" onclick="showCatDetail('${type}','${cat}')"><span class="sw" style="background:${ci.color}"></span>
       <span class="ln">${ci.ic} ${cat}</span><span class="lp">${pct}%</span></div>`;
   }).join("");
   wrap.innerHTML=`
@@ -903,13 +917,14 @@ function renderBars(container,entries,total,type){
   entries.forEach(([cat,val])=>{
     const ci=catInfo(type,cat);
     const pct=Math.round(val/total*100);
-    const row=document.createElement("div"); row.className="bar-row";
+    const row=document.createElement("div"); row.className="bar-row"; row.style.cursor="pointer";
     row.innerHTML=`
       <div class="bar-head">
         <span class="cat">${ci.ic} ${cat}</span>
         <span>${fmt(val)} · ${pct}%</span>
       </div>
       <div class="bar-track"><div class="bar-fill" style="width:${val/maxV*100}%;background:${ci.color}"></div></div>`;
+    row.onclick=()=>showCatDetail(type,cat);
     container.appendChild(row);
   });
 }
@@ -918,6 +933,34 @@ function catEntries(txs,type){
   txs.filter(t=>t.type===type).forEach(t=>{ by[t.category]=(by[t.category]||0)+t.amount });
   return Object.entries(by).sort((a,b)=>b[1]-a[1]);
 }
+
+// Détail des opérations d'une catégorie (clic sur le graphique)
+function showCatDetail(type, cat){
+  const ci=catInfo(type,cat);
+  const list=monthTxs().filter(t=>t.type===type && t.category===cat).sort((a,b)=>b.dateDisp.localeCompare(a.dateDisp));
+  const total=list.reduce((s,t)=>s+t.amount,0);
+  const monthTxt=state.cursor.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  $("catModalTitle").innerHTML=ci.ic+" "+cat;
+  $("catModalSub").textContent=list.length+" opération"+(list.length>1?"s":"")+" · "+monthTxt+" · Total "+fmt(total);
+  let html='<div class="tx-list" style="max-height:none">';
+  if(!list.length) html+='<div class="empty">Aucune opération.</div>';
+  list.forEach(t=>{
+    const badge='<span class="tx-badge '+(t.recurring?'rec':'once')+'">'+(t.recurring?'🔁 Récurrente':'📌 Ponctuelle')+'</span>';
+    const sub=t.subcategory?esc(t.subcategory)+' · ':'';
+    html+=`<div class="tx">
+      <div class="ic" style="background:${ci.color}22;color:${ci.color}">${ci.ic}${t.recurring?'<span class="rec">🔁</span>':''}</div>
+      <div class="meta">
+        <div class="t">${esc(t.label)}</div>
+        <div class="d">${badge}${sub}${new Date(t.dateDisp).toLocaleDateString('fr-FR')}${t.overridden?' · <span style="color:var(--amber)">✏️ ajusté</span>':''}</div>
+      </div>
+      <div class="amt ${type==='revenu'?'pos':'neg'}">${type==='revenu'?'+':'−'}${fmt(t.amount).replace('-','')}</div>
+    </div>`;
+  });
+  html+='</div>';
+  $("catModalBody").innerHTML=html;
+  $("catModal").style.display="flex";
+}
+function closeCatModal(){ $("catModal").style.display="none"; }
 
 // ---- Graphiques 12 mois ----
 function addMonthsKey(key,delta){ const [y,m]=key.split('-').map(Number); const idx=y*12+(m-1)+delta; return Math.floor(idx/12)+"-"+String(idx%12+1).padStart(2,'0'); }
@@ -1285,6 +1328,8 @@ $("impConfirm").onclick=confirmImport;
 $("impAll").onchange=e=>{ importRows.forEach(r=>r.include=e.target.checked); renderImportTable(); };
 $("impInvert").onclick=()=>{ importRows.forEach(r=>{ r.type=r.type==='revenu'?'depense':'revenu'; r.category=categorize(r.label,r.type); }); renderImportTable(); };
 $("importModal").onclick=e=>{ if(e.target===$("importModal")) closeImport(); };
+$("catClose").onclick=closeCatModal;
+$("catModal").onclick=e=>{ if(e.target===$("catModal")) closeCatModal(); };
 
 // thème clair / sombre
 const THEME_KEY="monbudget_theme";
