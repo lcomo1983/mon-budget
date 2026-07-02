@@ -95,6 +95,7 @@
   .radio-pill input{width:auto;accent-color:var(--accent)}
   .radio-pill.sel{border-color:var(--accent);color:var(--text);background:rgba(79,140,255,.1)}
 
+  .tx-search{width:100%;margin-bottom:12px}
   .tx-filter{display:flex;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px}
   .tx-filter button{flex:1;background:transparent;border:none;color:var(--muted);padding:8px 6px;border-radius:7px;cursor:pointer;font-weight:600;font-size:12.5px;transition:.15s;white-space:nowrap}
   .tx-filter button:hover{color:var(--text)}
@@ -341,6 +342,7 @@
 
       <div class="panel">
         <h2>Dépenses du mois <span class="hint" id="txCountDep"></span></h2>
+        <input type="search" class="tx-search" id="searchDep" placeholder="🔍 Rechercher (libellé, catégorie, montant…)">
         <div class="tx-filter" id="depFilter">
           <button data-f="all" class="active">Toutes</button>
           <button data-f="once">Ponctuelles</button>
@@ -367,6 +369,7 @@
       <div id="slot-rev"></div>
       <div class="panel">
         <h2>Revenus du mois <span class="hint" id="txCountRev"></span></h2>
+        <input type="search" class="tx-search" id="searchRev" placeholder="🔍 Rechercher (libellé, catégorie, montant…)">
         <div class="tx-list" id="txListRev"></div>
       </div>
     </div>
@@ -667,6 +670,9 @@ $("depFilter").querySelectorAll("button").forEach(b=>b.onclick=()=>{
   $("depFilter").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
   render();
 });
+// recherche
+$("searchDep").oninput=()=>render();
+$("searchRev").oninput=()=>render();
 
 // sélecteur de plage des graphiques (12 / 24 / 36 mois)
 $("rangeSel").querySelectorAll("button").forEach(b=>b.onclick=()=>{
@@ -875,6 +881,11 @@ function renderTxList(container,list,kind){
     container.appendChild(div);
   });
 }
+function matchSearch(t,q){
+  q=(q||"").trim().toLowerCase(); if(!q) return true;
+  const hay=(t.label+" "+t.category+" "+(t.subcategory||"")+" "+t.amount+" "+fmt(t.amount)).toLowerCase();
+  return q.split(/\s+/).every(w=>hay.includes(w));
+}
 function render(){
   monthLabel.textContent=state.cursor.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   const txs=monthTxs();
@@ -888,7 +899,9 @@ function render(){
   let depTxs=txs.filter(t=>t.type==='depense');
   if(state.depFilter==='once') depTxs=depTxs.filter(t=>!t.recurring);
   else if(state.depFilter==='recurring') depTxs=depTxs.filter(t=>t.recurring);
-  const revTxs=txs.filter(t=>t.type==='revenu');
+  const qd=$("searchDep").value; if(qd) depTxs=depTxs.filter(t=>matchSearch(t,qd));
+  let revTxs=txs.filter(t=>t.type==='revenu');
+  const qr=$("searchRev").value; if(qr) revTxs=revTxs.filter(t=>matchSearch(t,qr));
   renderTxList($("txListDep"),depTxs,"dépense");
   renderTxList($("txListRev"),revTxs,"revenu");
   $("txCountDep").textContent=depTxs.length?depTxs.length+" opération"+(depTxs.length>1?"s":""):"";
