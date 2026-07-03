@@ -1217,9 +1217,8 @@ function cumulativeAt(key){
 function renderCharts(){
   const nowKey=monthKey(state.cursor);
   const N=state.chartRange;
-  // le mois courant est ancré vers la droite : historique à gauche, quelques mois de projection à droite
-  const lookahead=Math.round(N*0.15);        // mois futurs affichés après le mois courant
-  const nowPos=N-1-lookahead;                 // position du mois courant dans la fenêtre
+  // le mois courant est le 1er mois affiché : projection vers la droite
+  const nowPos=0;                             // position du mois courant dans la fenêtre
   const centerKey=addMonthsKey(nowKey,state.chartOffset);
   const keys=[]; for(let i=0;i<N;i++) keys.push(addMonthsKey(centerKey,i-nowPos));
   const data=keys.map(k=>({k,...periodTotals(k)}));
