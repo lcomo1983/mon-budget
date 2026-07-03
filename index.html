@@ -427,15 +427,15 @@
   <div class="tabpane" id="pane-charts" style="display:none">
   <div class="panel">
     <h2 style="flex-wrap:wrap;gap:10px 14px">
-      <span>Évolution sur <span id="rangeMonths">12</span> mois <span class="hint" id="rangeHint"></span></span>
+      <span>Évolution sur <span id="rangeMonths">6</span> mois <span class="hint" id="rangeHint"></span></span>
       <span class="range-sel" id="chartNav">
         <button id="chartPrev" title="Période précédente">◀</button>
         <button id="chartToday" title="Revenir au mois courant">Aujourd'hui</button>
         <button id="chartNext" title="Période suivante">▶</button>
       </span>
       <span class="range-sel" id="rangeSel">
-        <button data-range="6">6</button>
-        <button data-range="12" class="active">12</button>
+        <button data-range="6" class="active">6</button>
+        <button data-range="12">12</button>
         <button data-range="24">24</button>
       </span>
     </h2>
@@ -609,7 +609,7 @@ const SUPABASE_URL="https://htilkeibdzzvjxvqpjmz.supabase.co";
 const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0aWxrZWliZHp6dmp4dnFwam16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5NjQwNzIsImV4cCI6MjA5ODU0MDA3Mn0.iVyG9vZhGXYhGMhHOTrnzGzreHZFTrnf3FLcTEv2E8o";
 let sb=null, currentUser=null, remoteTimer=null;
 
-let state={ txs: [], type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:12, chartOffset:0, depFilter:"all" };
+let state={ txs: [], type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:6, chartOffset:0, depFilter:"all" };
 
 function cacheKey(){ return currentUser ? KEY+"_"+currentUser.id : KEY; }
 function loadCache(uid){ try{ return JSON.parse(localStorage.getItem(KEY+"_"+uid)); }catch(e){ return null; } }
