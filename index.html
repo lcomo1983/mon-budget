@@ -1217,10 +1217,11 @@ function cumulativeAt(key){
 function renderCharts(){
   const nowKey=monthKey(state.cursor);
   const N=state.chartRange;
-  const centerIdx=Math.floor(N/2);
-  // fenêtre centrée sur le mois courant décalé par la navigation (chartOffset)
+  // le mois courant est ancré vers la droite : historique à gauche, quelques mois de projection à droite
+  const lookahead=Math.round(N*0.15);        // mois futurs affichés après le mois courant
+  const nowPos=N-1-lookahead;                 // position du mois courant dans la fenêtre
   const centerKey=addMonthsKey(nowKey,state.chartOffset);
-  const keys=[]; for(let i=-centerIdx;i<N-centerIdx;i++) keys.push(addMonthsKey(centerKey,i));
+  const keys=[]; for(let i=0;i<N;i++) keys.push(addMonthsKey(centerKey,i-nowPos));
   const data=keys.map(k=>({k,...periodTotals(k)}));
   // indice du mois courant dans la fenêtre (repère), -1 si hors fenêtre
   const nowIdx=keys.indexOf(nowKey);
@@ -1229,7 +1230,7 @@ function renderCharts(){
   $("chartToday").classList.toggle("active",state.chartOffset===0);
   // n'afficher qu'une étiquette sur labelEvery
   const labelEvery = N>18 ? 3 : (N>9 ? 2 : 1);
-  const showLabel = i => Math.abs(i-centerIdx) % labelEvery === 0;
+  const showLabel = i => Math.abs(i-nowPos) % labelEvery === 0;
 
   // --- Histogramme combiné ---
   const W=760,H=300,L=54,R=14,T=16,B=40;
@@ -1266,32 +1267,32 @@ function renderCharts(){
   const zL=`<line x1="${L}" y1="${zeroY}" x2="${W-R}" y2="${zeroY}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
   $("chartMonthly").innerHTML=`<svg viewBox="0 0 ${W} ${H}">${gl}${marker}${bands}${zL}${bars}<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" pointer-events="none"/>${dots}${axis}${labels}</svg>`;
 
-  // --- Courbe solde cumulé ---
+  // --- Histogramme solde cumulé ---
   const cum=keys.map(cumulativeAt);
   const cW=760,cH=240,cL=54,cR=14,cT=16,cB=40;
-  const cpW=cW-cL-cR, cpH=cH-cT-cB;
+  const cpW=cW-cL-cR, cpH=cH-cT-cB, cgW=cpW/n;
   let cMax=Math.max(0,...cum), cMin=Math.min(0,...cum); if(cMax===cMin) cMax=cMin+1;
-  const cRange=cMax-cMin, cyOf=v=>cT+(cMax-v)/cRange*cpH, cxOf=i=> n>1 ? cL+cpW*i/(n-1) : cL+cpW/2, czero=cyOf(0);
-  let cgl="",caxis="",lp="",cdots="",clabels="";
+  const cRange=cMax-cMin, cyOf=v=>cT+(cMax-v)/cRange*cpH, cxc=i=>cL+cgW*i+cgW/2, czero=cyOf(0);
+  const cBarW=cgW*0.55;
+  let cgl="",caxis="",cbars="",cbands="",clabels="";
   for(let i=0;i<=4;i++){ const v=cMin+cRange*i/4, y=cyOf(v);
     cgl+=`<line class="gridline" x1="${cL}" y1="${y}" x2="${cW-cR}" y2="${y}"/>`;
     caxis+=`<text class="axis" x="${cL-7}" y="${y+3}" text-anchor="end">${fmtShort(v)}</text>`; }
   cum.forEach((v,i)=>{
-    const x=cxOf(i), y=cyOf(v);
-    lp+=(i?'L':'M')+x+","+y+" ";
-    cdots+=`<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"><title>${monthShort(keys[i])} : ${fmt(v)}</title></circle>`;
+    const y=cyOf(v), by=Math.min(y,czero), bh=Math.max(Math.abs(y-czero),0.5), col=v>=0?'var(--accent)':'var(--red)';
+    cbands+=`<rect class="mband" x="${cL+cgW*i}" y="${cT}" width="${cgW}" height="${cpH}" onclick="showMonthDetail('${keys[i]}')"><title>${monthShort(keys[i])} — voir le détail</title></rect>`;
+    cbars+=`<rect class="bar" onclick="showMonthDetail('${keys[i]}')" x="${cxc(i)-cBarW/2}" y="${by}" width="${cBarW}" height="${bh}" rx="2" fill="${col}"><title>${monthShort(keys[i])} — Solde cumulé : ${fmt(v)}</title></rect>`;
     if(showLabel(i)){
       const [yy,mm]=keys[i].split('-');
-      clabels+=`<text class="axis" x="${x}" y="${cH-22}" text-anchor="middle">${MOIS[+mm-1].slice(0,3).toLowerCase()}.</text><text class="axis" x="${x}" y="${cH-10}" text-anchor="middle" opacity="0.6">${yy.slice(2)}</text>`;
+      clabels+=`<text class="axis" x="${cxc(i)}" y="${cH-22}" text-anchor="middle">${MOIS[+mm-1].slice(0,3).toLowerCase()}.</text><text class="axis" x="${cxc(i)}" y="${cH-10}" text-anchor="middle" opacity="0.6">${yy.slice(2)}</text>`;
     }
   });
-  const area=`${lp}L${cxOf(n-1)},${czero} L${cxOf(0)},${czero} Z`;
   const czL=`<line x1="${cL}" y1="${czero}" x2="${cW-cR}" y2="${czero}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
   let cmarker="";
-  if(nowIdx>=0){ const cmarkerX=cxOf(nowIdx);
+  if(nowIdx>=0){ const cmarkerX=cxc(nowIdx);
     cmarker=`<line x1="${cmarkerX}" y1="${cT}" x2="${cmarkerX}" y2="${cH-cB}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`; }
-  $("chartCumul").innerHTML=`<svg viewBox="0 0 ${cW} ${cH}"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>${cgl}${cmarker}${czL}<path d="${area}" fill="url(#cg)"/><path d="${lp}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${cdots}${caxis}${clabels}</svg>`;
-  const refIdx=nowIdx>=0?nowIdx:centerIdx;
+  $("chartCumul").innerHTML=`<svg viewBox="0 0 ${cW} ${cH}">${cgl}${cmarker}${cbands}${czL}${cbars}${caxis}${clabels}</svg>`;
+  const refIdx=nowIdx>=0?nowIdx:nowPos;
   $("cumHint").textContent="au "+monthShort(keys[refIdx])+" : "+fmt(cum[refIdx]);
 }
 function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
