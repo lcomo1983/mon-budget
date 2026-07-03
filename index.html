@@ -1167,6 +1167,39 @@ function showMonthDetail(key, only){
   $("catModal").style.display="flex";
 }
 
+// Détail du solde cumulé (clic sur une barre du graphique cumulé)
+function showCumulDetail(key){
+  // premier mois avec activité
+  let first=null;
+  state.txs.forEach(t=>{ const s=t.date.slice(0,7); if(!first||s<first) first=s; });
+  if(!first||first>key) first=key;
+  const months=[]; for(let m=first;m<=key;m=addMonthsKey(m,1)){ months.push(m); if(months.length>600)break; }
+  let cRev=0,cDep=0,cEpa=0,running=0,rows="";
+  months.forEach(mk=>{
+    const p=periodTotals(mk); cRev+=p.rev; cDep+=p.dep; cEpa+=p.epa; running+=p.solde;
+    const [yy,mm]=mk.split('-'), col=running>=0?'var(--accent)':'var(--red)';
+    const dSign=p.solde>=0?'+':'−', dCol=p.solde>=0?'var(--green)':'var(--red)';
+    rows=`<div class="tx">
+      <div class="meta">
+        <div class="t">${MOIS[+mm-1]} ${yy}</div>
+        <div class="d">Solde du mois <span style="color:${dCol}">${dSign}${fmt(p.solde).replace('-','')}</span></div>
+      </div>
+      <div class="amt" style="color:${col};font-weight:700">${fmt(running)}</div>
+    </div>`+rows;   // plus récent en haut
+  });
+  const [yy,mm]=key.split('-'), total=running, tCol=total>=0?'var(--accent)':'var(--red)';
+  $("catModalTitle").innerHTML="📈 Solde cumulé — "+MOIS[+mm-1]+" "+yy;
+  $("catModalSub").innerHTML=
+    '<span style="color:var(--green)">Revenus cumulés '+fmt(cRev)+'</span> · '+
+    '<span style="color:var(--red)">Dépenses cumulées '+fmt(cDep)+'</span> · '+
+    '<span style="color:var(--sav)">Épargne cumulée '+fmt(cEpa)+'</span> · '+
+    '<b style="color:'+tCol+'">Solde cumulé '+fmt(total)+'</b>';
+  $("catModalBody").innerHTML=rows
+    ? '<div style="margin:6px 0 4px;font-size:12px;font-weight:700;color:var(--muted)">Évolution mois par mois</div><div class="tx-list" style="max-height:none">'+rows+'</div>'
+    : '<div class="empty">Aucune opération jusqu\'à ce mois.</div>';
+  $("catModal").style.display="flex";
+}
+
 // ---- Graphiques 12 mois ----
 function addMonthsKey(key,delta){ const [y,m]=key.split('-').map(Number); const idx=y*12+(m-1)+delta; return Math.floor(idx/12)+"-"+String(idx%12+1).padStart(2,'0'); }
 function monthDiff(a,b){ const [ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number); return (yb-ya)*12+(mb-ma); }
@@ -1289,8 +1322,8 @@ function renderCharts(){
     caxis+=`<text class="axis" x="${cL-7}" y="${y+3}" text-anchor="end">${fmtShort(v)}</text>`; }
   cum.forEach((v,i)=>{
     const y=cyOf(v), by=Math.min(y,czero), bh=Math.max(Math.abs(y-czero),0.5), col=v>=0?'var(--accent)':'var(--red)';
-    cbands+=`<rect class="mband" x="${cL+cgW*i}" y="${cT}" width="${cgW}" height="${cpH}" onclick="showMonthDetail('${keys[i]}')"><title>${monthShort(keys[i])} — voir le détail</title></rect>`;
-    cbars+=`<rect class="bar" onclick="showMonthDetail('${keys[i]}')" x="${cxc(i)-cBarW/2}" y="${by}" width="${cBarW}" height="${bh}" rx="2" fill="${col}"><title>${monthShort(keys[i])} — Solde cumulé : ${fmt(v)}</title></rect>`;
+    cbands+=`<rect class="mband" x="${cL+cgW*i}" y="${cT}" width="${cgW}" height="${cpH}" onclick="showCumulDetail('${keys[i]}')"><title>${monthShort(keys[i])} — voir le détail du solde cumulé</title></rect>`;
+    cbars+=`<rect class="bar" onclick="showCumulDetail('${keys[i]}')" x="${cxc(i)-cBarW/2}" y="${by}" width="${cBarW}" height="${bh}" rx="2" fill="${col}"><title>${monthShort(keys[i])} — Solde cumulé : ${fmt(v)}</title></rect>`;
     if(showLabel(i)){
       const [yy,mm]=keys[i].split('-');
       clabels+=`<text class="axis" x="${cxc(i)}" y="${cH-22}" text-anchor="middle">${MOIS[+mm-1].slice(0,3).toLowerCase()}.</text><text class="axis" x="${cxc(i)}" y="${cH-10}" text-anchor="middle" opacity="0.6">${yy.slice(2)}</text>`;
