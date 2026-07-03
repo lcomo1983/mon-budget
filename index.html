@@ -1215,7 +1215,7 @@ function cumulativeAt(key){
 }
 
 function renderCharts(){
-  const nowKey=monthKey(state.cursor);
+  const nowKey=monthKey(new Date());   // ancré sur le vrai mois courant (aujourd'hui)
   const N=state.chartRange;
   // le mois courant est le 1er mois affiché : projection vers la droite
   const nowPos=0;                             // position du mois courant dans la fenêtre
