@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(open \"file:///Users/lcomo1983/Library/CloudStorage/OneDrive-Personnel/AI/Anthropic/Code/Gestion%20budget/index.html?v=$\\(date +%s\\)\")",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "Bash(grep -n \"showMonthDetail\\('\\\\${d.k}'\" index.html)",
+      "Bash(grep -n \"showMonthDetail\\('\\\\${keys\\\\[i\\\\]}'\\\\|mband.*showMonthDetail\" index.html)"
     ]
   }
 }

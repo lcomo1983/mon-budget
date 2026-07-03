@@ -1124,20 +1124,28 @@ function showCatDetail(type, cat){
 function closeCatModal(){ $("catModal").style.display="none"; }
 
 // Détail des montants d'un mois (clic sur une barre du graphique)
-function showMonthDetail(key){
+// only : 'revenu' | 'depense' | 'epargne' pour n'afficher qu'un seul type ; sinon tout le mois
+function showMonthDetail(key, only){
   const list=monthTxsFor(key), tot=periodTotals(key);
-  const [yy,mm]=key.split('-');
-  $("catModalTitle").innerHTML="📅 "+MOIS[+mm-1]+" "+yy;
-  $("catModalSub").innerHTML=
-    '<span style="color:var(--green)">Revenus '+fmt(tot.rev)+'</span> · '+
-    '<span style="color:var(--red)">Dépenses '+fmt(tot.dep)+'</span> · '+
-    '<span style="color:var(--sav)">Épargne '+fmt(tot.epa)+'</span> · '+
-    '<b>Solde '+fmt(tot.solde)+'</b>';
-  const section=(label,type,total)=>{
+  const [yy,mm]=key.split('-'), monthTxt=MOIS[+mm-1]+" "+yy;
+  const META={revenu:{ic:'💰',lbl:'Revenus',tot:tot.rev},depense:{ic:'💸',lbl:'Dépenses',tot:tot.dep},epargne:{ic:'🏦',lbl:'Épargne',tot:tot.epa}};
+  if(only && META[only]){
+    const m=META[only], cnt=list.filter(t=>t.type===only).length;
+    $("catModalTitle").innerHTML=m.ic+" "+m.lbl+" — "+monthTxt;
+    $("catModalSub").innerHTML=cnt+" opération"+(cnt>1?'s':'')+" · Total "+fmt(m.tot);
+  }else{
+    $("catModalTitle").innerHTML="📅 "+monthTxt;
+    $("catModalSub").innerHTML=
+      '<span style="color:var(--green)">Revenus '+fmt(tot.rev)+'</span> · '+
+      '<span style="color:var(--red)">Dépenses '+fmt(tot.dep)+'</span> · '+
+      '<span style="color:var(--sav)">Épargne '+fmt(tot.epa)+'</span> · '+
+      '<b>Solde '+fmt(tot.solde)+'</b>';
+  }
+  const section=(label,type,total,head)=>{
     const rows=list.filter(t=>t.type===type);
     if(!rows.length) return '';
-    let h='<div style="margin:6px 0 4px;font-size:12px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between">'
-      +'<span>'+label+'</span><span>'+fmt(total)+'</span></div><div class="tx-list" style="max-height:none">';
+    let h=(head!==false?'<div style="margin:6px 0 4px;font-size:12px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between">'
+      +'<span>'+label+'</span><span>'+fmt(total)+'</span></div>':'')+'<div class="tx-list" style="max-height:none">';
     rows.forEach(t=>{
       const ci=catInfo(t.type,t.category), sub=t.subcategory?esc(t.subcategory)+' · ':'';
       const badge='<span class="tx-badge '+(t.recurring?'rec':'once')+'">'+(t.recurring?'🔁 Récurrente':'📌 Ponctuelle')+'</span>';
@@ -1152,8 +1160,10 @@ function showMonthDetail(key){
     });
     return h+'</div>';
   };
-  const body=section('💰 Revenus','revenu',tot.rev)+section('💸 Dépenses','depense',tot.dep)+section('🏦 Épargne','epargne',tot.epa);
-  $("catModalBody").innerHTML=body||'<div class="empty">Aucune opération ce mois-ci.</div>';
+  const body = (only && META[only])
+    ? section(META[only].lbl,only,META[only].tot,false)
+    : section('💰 Revenus','revenu',tot.rev)+section('💸 Dépenses','depense',tot.dep)+section('🏦 Épargne','epargne',tot.epa);
+  $("catModalBody").innerHTML=body||'<div class="empty">Aucune opération'+(only?' de ce type':'')+' ce mois-ci.</div>';
   $("catModal").style.display="flex";
 }
 
@@ -1252,9 +1262,9 @@ function renderCharts(){
     const gx=L+gW*i+gW/2, x0=gx-grpW/2;
     // bande cliquable (sous les barres) → détail des montants du mois
     bands+=`<rect class="mband" x="${L+gW*i}" y="${T}" width="${gW}" height="${pH}" onclick="showMonthDetail('${d.k}')"><title>${monthShort(d.k)} — voir le détail</title></rect>`;
-    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}')" x="${x0}" y="${yOf(d.rev)}" width="${barW}" height="${Math.max(zeroY-yOf(d.rev),0)}" rx="2" fill="var(--green)"><title>${monthShort(d.k)} — Revenus : ${fmt(d.rev)}</title></rect>`;
-    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}')" x="${x0+barW+gap}" y="${yOf(d.dep)}" width="${barW}" height="${Math.max(zeroY-yOf(d.dep),0)}" rx="2" fill="var(--red)"><title>${monthShort(d.k)} — Dépenses : ${fmt(d.dep)}</title></rect>`;
-    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}')" x="${x0+2*(barW+gap)}" y="${yOf(d.epa)}" width="${barW}" height="${Math.max(zeroY-yOf(d.epa),0)}" rx="2" fill="var(--sav)"><title>${monthShort(d.k)} — Épargne : ${fmt(d.epa)}</title></rect>`;
+    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}','revenu')" x="${x0}" y="${yOf(d.rev)}" width="${barW}" height="${Math.max(zeroY-yOf(d.rev),0)}" rx="2" fill="var(--green)"><title>${monthShort(d.k)} — Revenus : ${fmt(d.rev)}</title></rect>`;
+    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}','depense')" x="${x0+barW+gap}" y="${yOf(d.dep)}" width="${barW}" height="${Math.max(zeroY-yOf(d.dep),0)}" rx="2" fill="var(--red)"><title>${monthShort(d.k)} — Dépenses : ${fmt(d.dep)}</title></rect>`;
+    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}','epargne')" x="${x0+2*(barW+gap)}" y="${yOf(d.epa)}" width="${barW}" height="${Math.max(zeroY-yOf(d.epa),0)}" rx="2" fill="var(--sav)"><title>${monthShort(d.k)} — Épargne : ${fmt(d.epa)}</title></rect>`;
     const sy=yOf(d.solde);
     line+=(i?'L':'M')+gx+","+sy+" ";
     dots+=`<circle cx="${gx}" cy="${sy}" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"><title>${monthShort(d.k)} — Solde : ${fmt(d.solde)}</title></circle>`;
