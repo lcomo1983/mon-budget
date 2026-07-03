@@ -143,6 +143,9 @@
   .chart svg{width:100%;height:auto;display:block}
   .chart .axis{fill:var(--muted);font-size:10px}
   .chart .gridline{stroke:var(--border);stroke-width:1;opacity:.6}
+  .chart .mband{fill:var(--accent);opacity:0;cursor:pointer;transition:opacity .12s}
+  .chart .mband:hover{opacity:.10}
+  .chart rect.bar{cursor:pointer}
   .chart-legend{display:flex;gap:20px;justify-content:center;margin-top:12px;font-size:12.5px;flex-wrap:wrap;color:var(--muted)}
   .chart-legend .li{display:flex;align-items:center;gap:7px}
   .chart-legend .sw{width:12px;height:12px;border-radius:3px}
@@ -423,12 +426,17 @@
   <!-- ===== ONGLET GRAPHIQUES ===== -->
   <div class="tabpane" id="pane-charts" style="display:none">
   <div class="panel">
-    <h2>
-      <span>Évolution sur <span id="rangeMonths">15</span> mois <span class="hint">centré sur <span id="rangeHint"></span></span></span>
+    <h2 style="flex-wrap:wrap;gap:10px 14px">
+      <span>Évolution sur <span id="rangeMonths">12</span> mois <span class="hint" id="rangeHint"></span></span>
+      <span class="range-sel" id="chartNav">
+        <button id="chartPrev" title="Période précédente">◀</button>
+        <button id="chartToday" title="Revenir au mois courant">Aujourd'hui</button>
+        <button id="chartNext" title="Période suivante">▶</button>
+      </span>
       <span class="range-sel" id="rangeSel">
-        <button data-range="15" class="active">15</button>
-        <button data-range="25">25</button>
-        <button data-range="37">37</button>
+        <button data-range="6">6</button>
+        <button data-range="12" class="active">12</button>
+        <button data-range="24">24</button>
       </span>
     </h2>
     <div class="chart" id="chartMonthly"></div>
@@ -601,7 +609,7 @@ const SUPABASE_URL="https://htilkeibdzzvjxvqpjmz.supabase.co";
 const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0aWxrZWliZHp6dmp4dnFwam16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5NjQwNzIsImV4cCI6MjA5ODU0MDA3Mn0.iVyG9vZhGXYhGMhHOTrnzGzreHZFTrnf3FLcTEv2E8o";
 let sb=null, currentUser=null, remoteTimer=null;
 
-let state={ txs: [], type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:15, depFilter:"all" };
+let state={ txs: [], type:"depense", cursor:new Date(), editId:null, editScope:"series", editMonth:null, chartRange:12, chartOffset:0, depFilter:"all" };
 
 function cacheKey(){ return currentUser ? KEY+"_"+currentUser.id : KEY; }
 function loadCache(uid){ try{ return JSON.parse(localStorage.getItem(KEY+"_"+uid)); }catch(e){ return null; } }
@@ -757,12 +765,17 @@ $("searchDep").oninput=()=>render();
 $("searchRev").oninput=()=>render();
 $("searchEpa").oninput=()=>render();
 
-// sélecteur de plage des graphiques (12 / 24 / 36 mois)
+// sélecteur de plage des graphiques (6 / 12 / 24 mois)
 $("rangeSel").querySelectorAll("button").forEach(b=>b.onclick=()=>{
   state.chartRange=+b.dataset.range;
   $("rangeSel").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
   renderCharts();
 });
+// navigation de la fenêtre du graphique (période précédente / suivante / recentrer)
+function chartStep(){ return Math.max(1, Math.round(state.chartRange/2)); }
+$("chartPrev").onclick=()=>{ state.chartOffset-=chartStep(); renderCharts(); };
+$("chartNext").onclick=()=>{ state.chartOffset+=chartStep(); renderCharts(); };
+$("chartToday").onclick=()=>{ state.chartOffset=0; renderCharts(); };
 
 function readForm(){
   const freq=currentFreq();
@@ -922,8 +935,7 @@ function delTx(id){
   save(); render();
 }
 
-function monthTxs(){
-  const k=monthKey(state.cursor);
+function monthTxsFor(k){
   const out=[];
   state.txs.forEach(t=>{
     if(!occursIn(t,k)) return;
@@ -938,6 +950,7 @@ function monthTxs(){
   });
   return out.sort((a,b)=>b.dateDisp.localeCompare(a.dateDisp));
 }
+function monthTxs(){ return monthTxsFor(monthKey(state.cursor)); }
 
 function renderTxList(container,list,kind){
   container.innerHTML="";
@@ -1110,6 +1123,40 @@ function showCatDetail(type, cat){
 }
 function closeCatModal(){ $("catModal").style.display="none"; }
 
+// Détail des montants d'un mois (clic sur une barre du graphique)
+function showMonthDetail(key){
+  const list=monthTxsFor(key), tot=periodTotals(key);
+  const [yy,mm]=key.split('-');
+  $("catModalTitle").innerHTML="📅 "+MOIS[+mm-1]+" "+yy;
+  $("catModalSub").innerHTML=
+    '<span style="color:var(--green)">Revenus '+fmt(tot.rev)+'</span> · '+
+    '<span style="color:var(--red)">Dépenses '+fmt(tot.dep)+'</span> · '+
+    '<span style="color:var(--sav)">Épargne '+fmt(tot.epa)+'</span> · '+
+    '<b>Solde '+fmt(tot.solde)+'</b>';
+  const section=(label,type,total)=>{
+    const rows=list.filter(t=>t.type===type);
+    if(!rows.length) return '';
+    let h='<div style="margin:6px 0 4px;font-size:12px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between">'
+      +'<span>'+label+'</span><span>'+fmt(total)+'</span></div><div class="tx-list" style="max-height:none">';
+    rows.forEach(t=>{
+      const ci=catInfo(t.type,t.category), sub=t.subcategory?esc(t.subcategory)+' · ':'';
+      const badge='<span class="tx-badge '+(t.recurring?'rec':'once')+'">'+(t.recurring?'🔁 Récurrente':'📌 Ponctuelle')+'</span>';
+      h+=`<div class="tx">
+        <div class="ic" style="background:${ci.color}22;color:${ci.color}">${ci.ic}${t.recurring?'<span class="rec">🔁</span>':''}</div>
+        <div class="meta">
+          <div class="t">${esc(t.label)}</div>
+          <div class="d">${badge}${sub}${t.category}${t.overridden?' · <span style="color:var(--amber)">✏️ ajusté</span>':''}</div>
+        </div>
+        <div class="amt ${type==='revenu'?'pos':(type==='epargne'?'sav':'neg')}">${type==='revenu'?'+':(type==='epargne'?'':'−')}${fmt(t.amount).replace('-','')}</div>
+      </div>`;
+    });
+    return h+'</div>';
+  };
+  const body=section('💰 Revenus','revenu',tot.rev)+section('💸 Dépenses','depense',tot.dep)+section('🏦 Épargne','epargne',tot.epa);
+  $("catModalBody").innerHTML=body||'<div class="empty">Aucune opération ce mois-ci.</div>';
+  $("catModal").style.display="flex";
+}
+
 // ---- Graphiques 12 mois ----
 function addMonthsKey(key,delta){ const [y,m]=key.split('-').map(Number); const idx=y*12+(m-1)+delta; return Math.floor(idx/12)+"-"+String(idx%12+1).padStart(2,'0'); }
 function monthDiff(a,b){ const [ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number); return (yb-ya)*12+(mb-ma); }
@@ -1168,15 +1215,20 @@ function cumulativeAt(key){
 }
 
 function renderCharts(){
-  const endKey=monthKey(state.cursor);
+  const nowKey=monthKey(state.cursor);
   const N=state.chartRange;
   const centerIdx=Math.floor(N/2);
-  const keys=[]; for(let i=-centerIdx;i<N-centerIdx;i++) keys.push(addMonthsKey(endKey,i));
+  // fenêtre centrée sur le mois courant décalé par la navigation (chartOffset)
+  const centerKey=addMonthsKey(nowKey,state.chartOffset);
+  const keys=[]; for(let i=-centerIdx;i<N-centerIdx;i++) keys.push(addMonthsKey(centerKey,i));
   const data=keys.map(k=>({k,...periodTotals(k)}));
+  // indice du mois courant dans la fenêtre (repère), -1 si hors fenêtre
+  const nowIdx=keys.indexOf(nowKey);
   $("rangeMonths").textContent=N;
-  $("rangeHint").textContent=monthShort(endKey);
-  // n'afficher qu'une étiquette sur labelEvery ; le mois courant (centre) est toujours étiqueté
-  const labelEvery = N>30 ? 3 : (N>15 ? 2 : 1);
+  $("rangeHint").textContent=monthShort(keys[0])+" → "+monthShort(keys[N-1])+(state.chartOffset?"":" · mois courant");
+  $("chartToday").classList.toggle("active",state.chartOffset===0);
+  // n'afficher qu'une étiquette sur labelEvery
+  const labelEvery = N>18 ? 3 : (N>9 ? 2 : 1);
   const showLabel = i => Math.abs(i-centerIdx) % labelEvery === 0;
 
   // --- Histogramme combiné ---
@@ -1190,15 +1242,19 @@ function renderCharts(){
   for(let i=0;i<=4;i++){ const v=yMin+range*i/4, y=yOf(v);
     gl+=`<line class="gridline" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/>`;
     axis+=`<text class="axis" x="${L-7}" y="${y+3}" text-anchor="end">${fmtShort(v)}</text>`; }
-  const barW=gW*0.2, gap=1.5, grpW=3*barW+2*gap;
-  const bandX=L+gW*centerIdx, markerX=bandX+gW/2;
-  const marker=`<rect x="${bandX}" y="${T}" width="${gW}" height="${pH}" fill="var(--accent)" opacity="0.08"/><line x1="${markerX}" y1="${T}" x2="${markerX}" y2="${H-B}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`;
-  let bars="",line="",dots="",labels="";
+  const barW=gW*0.26, gap=Math.max(1.5,gW*0.03), grpW=3*barW+2*gap;
+  // repère du mois courant (seulement s'il est dans la fenêtre)
+  let marker="";
+  if(nowIdx>=0){ const bandX=L+gW*nowIdx, markerX=bandX+gW/2;
+    marker=`<rect x="${bandX}" y="${T}" width="${gW}" height="${pH}" fill="var(--accent)" opacity="0.08"/><line x1="${markerX}" y1="${T}" x2="${markerX}" y2="${H-B}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`; }
+  let bars="",bands="",line="",dots="",labels="";
   data.forEach((d,i)=>{
     const gx=L+gW*i+gW/2, x0=gx-grpW/2;
-    bars+=`<rect x="${x0}" y="${yOf(d.rev)}" width="${barW}" height="${Math.max(zeroY-yOf(d.rev),0)}" rx="2" fill="var(--green)"><title>${monthShort(d.k)} — Revenus : ${fmt(d.rev)}</title></rect>`;
-    bars+=`<rect x="${x0+barW+gap}" y="${yOf(d.dep)}" width="${barW}" height="${Math.max(zeroY-yOf(d.dep),0)}" rx="2" fill="var(--red)"><title>${monthShort(d.k)} — Dépenses : ${fmt(d.dep)}</title></rect>`;
-    bars+=`<rect x="${x0+2*(barW+gap)}" y="${yOf(d.epa)}" width="${barW}" height="${Math.max(zeroY-yOf(d.epa),0)}" rx="2" fill="var(--sav)"><title>${monthShort(d.k)} — Épargne : ${fmt(d.epa)}</title></rect>`;
+    // bande cliquable (sous les barres) → détail des montants du mois
+    bands+=`<rect class="mband" x="${L+gW*i}" y="${T}" width="${gW}" height="${pH}" onclick="showMonthDetail('${d.k}')"><title>${monthShort(d.k)} — voir le détail</title></rect>`;
+    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}')" x="${x0}" y="${yOf(d.rev)}" width="${barW}" height="${Math.max(zeroY-yOf(d.rev),0)}" rx="2" fill="var(--green)"><title>${monthShort(d.k)} — Revenus : ${fmt(d.rev)}</title></rect>`;
+    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}')" x="${x0+barW+gap}" y="${yOf(d.dep)}" width="${barW}" height="${Math.max(zeroY-yOf(d.dep),0)}" rx="2" fill="var(--red)"><title>${monthShort(d.k)} — Dépenses : ${fmt(d.dep)}</title></rect>`;
+    bars+=`<rect class="bar" onclick="showMonthDetail('${d.k}')" x="${x0+2*(barW+gap)}" y="${yOf(d.epa)}" width="${barW}" height="${Math.max(zeroY-yOf(d.epa),0)}" rx="2" fill="var(--sav)"><title>${monthShort(d.k)} — Épargne : ${fmt(d.epa)}</title></rect>`;
     const sy=yOf(d.solde);
     line+=(i?'L':'M')+gx+","+sy+" ";
     dots+=`<circle cx="${gx}" cy="${sy}" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"><title>${monthShort(d.k)} — Solde : ${fmt(d.solde)}</title></circle>`;
@@ -1208,7 +1264,7 @@ function renderCharts(){
     }
   });
   const zL=`<line x1="${L}" y1="${zeroY}" x2="${W-R}" y2="${zeroY}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
-  $("chartMonthly").innerHTML=`<svg viewBox="0 0 ${W} ${H}">${gl}${marker}${zL}${bars}<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>${dots}${axis}${labels}</svg>`;
+  $("chartMonthly").innerHTML=`<svg viewBox="0 0 ${W} ${H}">${gl}${marker}${bands}${zL}${bars}<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" pointer-events="none"/>${dots}${axis}${labels}</svg>`;
 
   // --- Courbe solde cumulé ---
   const cum=keys.map(cumulativeAt);
@@ -1231,10 +1287,12 @@ function renderCharts(){
   });
   const area=`${lp}L${cxOf(n-1)},${czero} L${cxOf(0)},${czero} Z`;
   const czL=`<line x1="${cL}" y1="${czero}" x2="${cW-cR}" y2="${czero}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
-  const cmarkerX=cxOf(centerIdx);
-  const cmarker=`<line x1="${cmarkerX}" y1="${cT}" x2="${cmarkerX}" y2="${cH-cB}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`;
+  let cmarker="";
+  if(nowIdx>=0){ const cmarkerX=cxOf(nowIdx);
+    cmarker=`<line x1="${cmarkerX}" y1="${cT}" x2="${cmarkerX}" y2="${cH-cB}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`; }
   $("chartCumul").innerHTML=`<svg viewBox="0 0 ${cW} ${cH}"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>${cgl}${cmarker}${czL}<path d="${area}" fill="url(#cg)"/><path d="${lp}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${cdots}${caxis}${clabels}</svg>`;
-  $("cumHint").textContent="au "+monthShort(keys[centerIdx])+" : "+fmt(cum[centerIdx]);
+  const refIdx=nowIdx>=0?nowIdx:centerIdx;
+  $("cumHint").textContent="au "+monthShort(keys[refIdx])+" : "+fmt(cum[refIdx]);
 }
 function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
 
